@@ -1,0 +1,215 @@
+package com.grampus.hualauncherkai.TcpSock;
+
+import android.accessibilityservice.AccessibilityService;
+import android.app.Instrumentation;
+import android.os.Build;
+import android.util.Log;
+
+import androidx.annotation.RequiresApi;
+
+import com.grampus.hualauncherkai.Data.GlobalPara;
+import com.grampus.hualauncherkai.Data.NetDataHub;
+import com.grampus.hualauncherkai.Data.AndroidParameter;
+import com.grampus.hualauncherkai.service.MyAccessibilityService;
+
+import java.io.DataOutputStream;
+import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.CharBuffer;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.StandardCharsets;
+
+@RequiresApi(api = Build.VERSION_CODES.KITKAT)
+public class CPackOperate {
+    public boolean m_bStartCapture = false;
+    public int m_nUniqueID = 0;
+    //   CPacket m_Packet;
+    Instrumentation inst = new Instrumentation();
+
+    // ScreenCastService screenCastService ;
+
+    public String getString(ByteBuffer buffer)
+    {
+        Charset charset = null;
+        CharsetDecoder decoder = null;
+        CharBuffer charBuffer = null;
+        try
+        {
+            charset = StandardCharsets.UTF_8;
+            decoder = charset.newDecoder();
+            // charBuffer = decoder.decode(buffer);//用这个的话，只能输出来一次结果，第二次显示为空
+            charBuffer = decoder.decode(buffer.asReadOnlyBuffer());
+            return charBuffer.toString();
+        }
+        catch (Exception ex)
+        {
+            ex.printStackTrace();
+            return "";
+        }
+    }
+    public void OnReceivePack(ByteBuffer bodyBuf){
+
+    /*typedef struct screen_pack_head
+      {
+          int		nUniqueID;
+          int		nMainCmd;
+          int		nDataSize;
+      }SCREEN_PACK_HEAD;*/
+
+        bodyBuf.position(4);
+        int nMainCmd = bodyBuf.order(ByteOrder.LITTLE_ENDIAN).getInt( );//取四个字节，并将其转为int类型的数字
+        int nDataSize = bodyBuf.order(ByteOrder.LITTLE_ENDIAN).getInt( );
+
+        if(nMainCmd == GlobalPara.WM_USE_NOTIFY_GET_CHANAGE_BUF){
+            Log.i("OnReceivePack","WM_USE_NOTIFY_GET_CHANAGE_BUF");
+        }
+        else if(nMainCmd == GlobalPara.WM_SINGLE_CAPTURE_START){
+            Log.i("OnReceivePack","WM_SINGLE_CAPTURE_START------开始监视.");
+            m_bStartCapture = true;
+        }
+        else if(nMainCmd == GlobalPara.WM_TO_ANROID_CMD_STRING){//所有的命令全在这里加
+            //   Log.w("OnReceivePack","44444444444444444444444");
+
+            if (!MyAccessibilityService.isStart()) {
+                Log.e("OnReceivePack", "辅助功能尚未开启,无法进行控制");
+                NetDataHub.get().addLog("辅助功能尚未开启,无法进行控制");
+                return;
+            }
+
+            ByteBuffer byteCmdBuffer = ByteBuffer.wrap(bodyBuf.array(), 12, nDataSize - 1);//这边需要减去零结尾。这跟C++不一样。
+            String szCmdLine = getString(byteCmdBuffer);
+
+            //Home Back测试，没问题
+            if (szCmdLine.equals("SendMouseStateCmd:Click_Home")) {
+                MyAccessibilityService.getInstance().performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME);
+                Log.w("OnReceivePack", "返回主界面");
+            }
+            if (szCmdLine.equals("SendMouseStateCmd:Click_Back")) {
+                MyAccessibilityService.getInstance().performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK);
+                Log.w("OnReceivePack", "退回上一步");
+            }
+
+
+            if ("SendMouseState:".equals(szCmdLine.substring(0, 15))) {
+                try {
+                    String mousePos = szCmdLine.substring(15);
+                    String[] position = mousePos.split("\\|");
+                    //    Log.d("OnReceivePack", "mousePos:" + position[0]+","+position[1]+","+yPos);
+                    int state = Integer.parseInt(position[0]);
+                    int oldX = Integer.parseInt(position[1]);
+                    int oldY = Integer.parseInt(position[2]);
+                    int xPos = Integer.parseInt(position[3]);
+                    int yPos = Integer.parseInt(position[4]);
+
+                    oldX = (int) (oldX * AndroidParameter.density);
+                    oldY = (int) (oldY * AndroidParameter.density);
+                    xPos = (int) (xPos * AndroidParameter.density);
+                    yPos = (int) (yPos * AndroidParameter.density);
+                    //位置是传过来的像素，应该做一个转换。
+
+                    //AccessibilityEvent event =null;
+                    /*
+                     * 以鼠标弹起时间为判断，超过500ms判定为长按，其他时候，收到弹起消息，即触发点击。
+                     * 也可以发送方发现上一个发送点击消息后间隔超过500ms，发送一个长按消息
+                     * */
+                    //   long clickTime = 0;
+                    //   long curTime = 0;
+                    boolean isClick = false;
+                    switch (state) {
+                        case 0:
+                            //                            MyAccessibilityService.mService.setPoint(xPos,yPos);
+                            //                            MyAccessibilityService.mService.onMouseEvent(LONG_CLICK_ACTION);
+
+                            MyAccessibilityService.getInstance().dispatchGestureLongClick(xPos, yPos);
+                            Log.w("OnReceivePack", "长按鼠标中：" + xPos + "," + yPos);
+                            break;
+
+                        case 512:   //0x0200
+
+                            //这些判断最后弄到view里去直接发过来把
+                           /* if(isClick){
+                                clickTime = System.currentTimeMillis();
+                                if(curTime - clickTime > 500 )
+                                {
+                                   //发送长按命令
+
+                                    isClick = false;
+                                    MyAccessibilityService.mService.setPoint(xPos,yPos);
+                                    MyAccessibilityService.mService.onMouseEvent(LONG_CLICK_ACTION);
+                                    Log.w("OnReceivePack","长按鼠标移动中,时长"+"："+(curTime - clickTime) );
+                                }
+                            }*/
+
+                            Log.w("OnReceivePack", "鼠标移动中" + "：" + xPos + "," + yPos);
+                            break;
+                        case 513:   //0x0201
+
+                            Log.w("OnReceivePack", "鼠标左击按下" + "：" + xPos + "," + yPos);
+
+                            break;
+                        case 514:   //0x0202
+
+                            Log.w("OnReceivePack", "左击弹起：" + oldX + "," + oldY + "," + xPos + "," + yPos);
+
+                            //event.setEventType(TYPE_TOUCH_INTERACTION_START);
+                            //    MyAccessibilityService.mService.setPoint(xPos,yPos);
+                            //    MyAccessibilityService.mService.onMouseEvent(CLICK_ACTION);
+
+                            MyAccessibilityService.getInstance().dispatchGesture(oldX, oldY, xPos, yPos);
+
+                            Log.w("OnReceivePack", "发送手势：" + xPos + "," + yPos);
+
+                            break;
+                        case 160:   //0x00A0
+                            Log.w("OnReceivePack", "移到非客户端区" + "：" + xPos + "," + yPos);
+                            break;
+                        default:
+                            Log.w("OnReceivePack", "其他事件" + "：" + position[0] + "," + xPos + "," + yPos);
+                            break;
+
+                    }
+                } catch (Exception e) {
+                    Log.e("OnReceivePack", "Failed to initial encoder, e: " + e);
+                }
+            }
+
+            if (szCmdLine.equals("StartAccessibilityService"))  //准备开始远程控制
+            {
+                //setMouseClick();
+                Log.w("OnReceivePack", "StartAccessibilityService---启动");
+                //m_Packet.SendScreenCmd()
+            }
+        }
+
+    }
+
+    private void execShellCmd(String cmd) {
+
+        try {
+            // 申请获取root权限，这一步很重要，不然会没有作用
+            //
+            //Process process = Runtime.getRuntime().exec("su");
+            //Process mProcess = new ProcessBuilder().command("/system/xbin/su").redirectErrorStream(true).start();
+
+            //OutputStream outputStream = mProcess.getOutputStream();
+            Process process = Runtime.getRuntime().exec("su");
+            Log.w("onClick", cmd);
+            // 获取输出流
+            OutputStream outputStream = process.getOutputStream();
+            DataOutputStream dataOutputStream = new DataOutputStream(
+                    outputStream);
+            dataOutputStream.writeBytes(cmd);
+            dataOutputStream.flush();
+            dataOutputStream.close();
+            outputStream.close();
+            Log.w("onClick", cmd);
+        } catch (Exception e) { //Throwable
+
+            Log.i("onClick", "execShellCmd失败！！！"+e);
+            //    t.printStackTrace();
+        }
+    }
+
+}

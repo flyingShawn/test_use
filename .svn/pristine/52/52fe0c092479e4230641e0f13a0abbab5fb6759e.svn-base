@@ -1,0 +1,30 @@
+package com.grampus.hualauncherkai.Data;
+
+import android.content.Context;
+import android.content.Intent;
+
+
+public class AndroidParameter {
+    public static int width ;
+    public static int hight ;
+    public static float density;
+    public static int densityDpi;
+    public static String serverIp;
+    public static int equipID ;
+    public static int manageID ;
+    public static String centerServerIp ;
+    public static boolean settingDesktop = true;
+    public static boolean screenLock = false;
+    public static boolean shouldUpdate = false;
+
+    public static String servApkVersion = "";
+
+
+
+    public static Context mainContext;
+    public static int resultCode = -1;
+    public static Intent resultData =null; //add by fsy 2021.9.20
+
+    public static int g_testCount ;//测试截屏前几帧打日志用的，平时用处都注掉
+
+}

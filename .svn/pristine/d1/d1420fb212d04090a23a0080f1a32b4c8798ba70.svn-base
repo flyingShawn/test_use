@@ -1,0 +1,382 @@
+package com.grampus.hualauncherkai.util;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.LineNumberReader;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.List;
+import java.util.UUID;
+
+
+import android.app.Activity;
+import android.app.ActivityManager;
+import android.app.ActivityManager.MemoryInfo;
+import android.content.Context;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.content.res.Configuration;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
+import android.os.Environment;
+import android.os.StatFs;
+import android.provider.Settings;
+import android.text.format.Formatter;
+import android.util.Log;
+import android.view.Display;
+import android.view.WindowManager;
+
+import com.grampus.hualauncherkai.Tools.Save;
+import com.grampus.hualauncherkai.log.LogTrace;
+
+public class DeviceInfoUtil
+{
+    private static final String TAG = "DeviceInfoUtil";
+
+    /**
+     * 获取当前可用内存大小
+     *
+     * @return
+     */
+    public static String getAvailMemory(Context context)
+    {
+        ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+        MemoryInfo mi = new MemoryInfo();
+        am.getMemoryInfo(mi);
+        return Formatter.formatFileSize(context, mi.availMem);
+    }
+
+    /**
+     * 获得总内存
+     *
+     * @return
+     */
+    public static String getTotalMemory(Context context)
+    {
+        long mTotal;
+        // /proc/meminfo读出的内核信息进行解释
+        String path = "/proc/meminfo";
+        String content = null;
+        BufferedReader br = null;
+        try
+        {
+            br = new BufferedReader(new FileReader(path), 8);
+            String line;
+            if ((line = br.readLine()) != null)
+            {
+                content = line;
+            }
+        }
+        catch (FileNotFoundException e)
+        {
+            e.printStackTrace();
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+        finally
+        {
+            if (br != null)
+            {
+                try
+                {
+                    br.close();
+                }
+                catch (IOException e)
+                {
+                    e.printStackTrace();
+                }
+            }
+        }
+        // beginIndex
+        int begin = content.indexOf(':');
+        // endIndex
+        int end = content.indexOf('k');
+        // 截取字符串信息
+
+        content = content.substring(begin + 1, end).trim();
+        mTotal = Long.parseLong(content);
+        return Formatter.formatFileSize(context, mTotal * 1024l);
+    }
+
+    /**
+     * @return
+     */
+    public static String getSDCardAvailSize(Context context)
+    {
+        long sdCardInfo = 0l;
+        String state = Environment.getExternalStorageState();
+        if (Environment.MEDIA_MOUNTED.equals(state))
+        {
+            File sdcardDir = Environment.getExternalStorageDirectory();
+            StatFs sf = new StatFs(sdcardDir.getPath());
+            long bSize = sf.getBlockSize();
+            long availBlocks = sf.getAvailableBlocks();
+
+            sdCardInfo = bSize * availBlocks;//可用大小   
+        }
+        return Formatter.formatFileSize(context, sdCardInfo);
+    }
+
+    /**
+     * @return
+     */
+    public static String getSDCardTotalSize(Context context)
+    {
+        long sdCardInfo = 0l;
+        String state = Environment.getExternalStorageState();
+        try
+        {
+            if (Environment.MEDIA_MOUNTED.equals(state))
+            {
+                File sdcardDir = Environment.getExternalStorageDirectory();
+                StatFs sf = new StatFs(sdcardDir.getPath());
+                long bSize = sf.getBlockSize();
+                long bCount = sf.getBlockCount();
+                long availBlocks = sf.getAvailableBlocks();
+
+                sdCardInfo = bSize * bCount;//总大小
+            }
+        }
+        catch (Exception e)
+        {
+            // TODO: handle exception
+            e.printStackTrace();
+        }
+        return Formatter.formatFileSize(context, sdCardInfo);
+    }
+
+    public static String getDisplayScreen(Activity activity)
+    {
+
+        // 方法1 Android获得屏幕的宽和高
+        WindowManager windowManager = activity.getWindowManager();
+        Display display1 = windowManager.getDefaultDisplay();
+        int screenWidth = display1.getWidth();
+        int screenHeight = display1.getHeight();
+        return screenHeight + "*" + screenWidth;
+    }
+
+    /**
+     * 获取全部应用
+     * 获取相关信息：
+     * PackageInfo mPackageInfo;
+     * 获取包名： mPackageInfo.packageName
+     * 获取icon： mPackageInfo.getApplicationIcon(applicationInfo);
+     * 获取应用名： mPackageInfo.getApplicationLabel(applicationInfo);
+     * 获取使用权限：
+     * mPackageInfo.getPackageInfo(packageName,PackageManager.GET_PERMISSIONS).requestedPermissions;
+     */
+    public static void getInstallApps(Context context)
+    {
+
+        PackageManager packageManager = context.getPackageManager();
+        List<PackageInfo> packageInfoList = packageManager.getInstalledPackages(0);
+        //判断是否系统应用
+        List<PackageInfo> apps = new ArrayList<PackageInfo>();
+        for (int i = 0; i < packageInfoList.size(); i++)
+        {
+            PackageInfo pak = (PackageInfo) packageInfoList.get(i);
+            //判断是否为系统预装的应用
+            if ((pak.applicationInfo.flags & pak.applicationInfo.FLAG_SYSTEM) <= 0)
+            {
+                // 第三方应用
+                apps.add(pak);
+                Log.d("DeviceInfoUtil", "app = " + pak.packageName + "   name = " + pak.applicationInfo.loadLabel(context.getPackageManager()).toString());
+            }
+            else
+            {
+                //系统应用
+            }
+        }
+    }
+
+    public static String getWifiIp(Context context)
+    {
+        if (NetWorkGPSUtil.isWifiConnected(context))
+        {
+            WifiManager wifi = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
+            WifiInfo info = wifi.getConnectionInfo();
+            String macAddress = info.getMacAddress();
+            String ipAddress = intToIp(info.getIpAddress());
+            return ipAddress;
+        }
+        else
+        {
+            return null;
+        }
+    }
+
+//    public static String getWifiMAC(Context context)
+//    {
+//        if (NetWorkGPSUtil.isWifiConnected(context))
+//        {
+//            WifiManager wifi = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
+//            WifiInfo info = wifi.getConnectionInfo();
+//            String macAddress = info.getMacAddress();
+//
+//            Save.putValue(context,"mac",macAddress);
+//
+//            return macAddress;
+//        }
+//        else
+//        {
+//            String macAddress=Save.getValue(context,"mac","");
+//            return macAddress;
+//            //return null;
+//        }
+//    }
+
+    private static String intToIp(int ip)
+    {
+        return (ip & 0xFF) + "." + ((ip >> 8) & 0xFF) + "." + ((ip >> 16) & 0xFF) + "."
+                + ((ip >> 24) & 0xFF);
+    }
+
+    public static String getPhoneIp()
+    {
+        try
+        {
+            for (Enumeration<NetworkInterface> en = NetworkInterface.getNetworkInterfaces(); en.hasMoreElements(); )
+            {
+                NetworkInterface intf = en.nextElement();
+                for (Enumeration<InetAddress> enumIpAddr = intf.getInetAddresses(); enumIpAddr.hasMoreElements(); )
+                {
+                    InetAddress inetAddress = enumIpAddr.nextElement();
+                    if (!inetAddress.isLoopbackAddress() && inetAddress instanceof Inet4Address)
+                    {
+                        // if (!inetAddress.isLoopbackAddress() && inetAddress 
+                        // instanceof Inet6Address) { 
+                        return inetAddress.getHostAddress().toString();
+                    }
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+        return "127.0.0.1";
+    }
+
+    /**
+     * 原版自带的获取mac地址的方法
+     * 因为可能获取到的是null，所以我不再采用这个方法
+     *
+     * @param context
+     * @return
+     */
+    public static String getMacAddr(Context context)
+    {
+        return getWifiMacAddress();
+    }
+
+
+    public static String getWifiMacAddress()
+    {
+        byte[] mac = null;
+        try
+        {
+            Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
+            if (networkInterfaces == null)
+            {
+                return null;
+            }
+
+            while (networkInterfaces.hasMoreElements())
+            {
+                NetworkInterface intf = networkInterfaces.nextElement();
+                if (intf.getName() != null && intf.getName().equalsIgnoreCase("wlan0"))
+                {
+                    mac = intf.getHardwareAddress();
+                    break;
+                }
+            }
+        }
+        catch (SocketException ex)
+        {
+            //AccountLog.e(TAG, "failed to get wifi Mac Address", ex);
+            return null;
+        }
+
+        if (mac == null)
+        {
+            return null;
+        }
+
+        StringBuilder buf = new StringBuilder();
+        for (byte aMac : mac)
+        {
+            buf.append(String.format("%02X:", aMac));
+        }
+        if (buf.length() > 0)
+        {
+            buf.deleteCharAt(buf.length() - 1);
+        }
+        return buf.toString();
+    }
+
+    /**
+     * 2020 04.02 未来修改
+     * 这个context有的时候会变成null，原因暂时未知
+     * 所以添加一个try catch进行判断
+     *
+     * @param context
+     * @return
+     */
+    public static String getUUID(Context context)
+    {
+        try
+        {
+            String uuid = Settings.System.getString(context.getContentResolver(), Settings.System.ANDROID_ID);
+            LogTrace.i(TAG, "getUUID", "ANDROID_ID ===" + uuid);
+            if (StringUtil.isEmpty(uuid))
+            {
+                uuid = getLocalUUID(context);
+            }
+            return uuid;
+        }
+        catch (NullPointerException e)
+        {
+            return "context is null";
+        }
+    }
+
+    public static String getLocalUUID(Context context)
+    {
+        String uuid = Save.getValue(context, "generateUUID", "");
+        if (StringUtil.isEmpty(uuid))
+        {
+            uuid = UUID.randomUUID().toString();
+            Save.putValue(context, "generateUUID", uuid);
+        }
+        LogTrace.i(TAG, "getLocalUUID", "uuid ===" + uuid);
+        return uuid;
+    }
+
+
+    /**
+     * 判断当前设备是手机还是平板，代码来自 Google I/O App for Android
+     *
+     * @param context
+     * @return 平板返回 True，手机返回 False
+     */
+    public static boolean isPad(Context context)
+    {
+        return false;//add by gwb;2020.9.21  现在相同处理。
+       /* return (context.getResources().getConfiguration().screenLayout
+                & Configuration.SCREENLAYOUT_SIZE_MASK)
+                >= Configuration.SCREENLAYOUT_SIZE_LARGE;
+
+        */
+    }
+}

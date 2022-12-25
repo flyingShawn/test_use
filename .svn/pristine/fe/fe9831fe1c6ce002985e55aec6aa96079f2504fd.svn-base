@@ -1,0 +1,230 @@
+package com.grampus.hualauncherkai.UI;
+
+
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
+import android.os.SystemClock;
+import android.text.format.DateFormat;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.AdapterView;
+import android.widget.GridView;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
+
+import com.grampus.hualauncherkai.R;
+import com.grampus.hualauncherkai.util.DeviceInfoUtil;
+
+import java.util.Calendar;
+import java.util.List;
+
+import static com.grampus.hualauncherkai.util.DeviceInfoUtil.getWifiMacAddress;
+import static com.grampus.hualauncherkai.UI.MainActivity.szVersionNum;
+
+/**
+ * Created by Grampus on 2017/4/18.
+ */
+
+public class AppFragment extends Fragment
+{
+
+    GridView gridView;
+    View view;
+    List<ResolveInfo> apps;
+    GridViewAdpter gridViewAdpter;
+    Context context;
+    //DigitalClock digitalClock;
+    LinearLayout lyInfo;
+    TextView tvDate;
+    TextView tvTime;
+    TextView tvDeviceName;
+    TextView tvIp;
+    TextView tvMAC;
+    int pageNum;
+    Runnable mTicker;
+    Calendar mCalendar = Calendar.getInstance();
+
+
+    private final static String mFormat = "yyyy年MM月dd日 EEEE";
+    private final static String mFormatTime = "HH:mm";
+
+    public AppFragment(Context context, List<ResolveInfo> apps, int pageNum)
+    {
+        try {
+            this.pageNum = pageNum;
+            this.context = context;
+            this.apps = apps;
+            gridViewAdpter = new GridViewAdpter(this.context, this.apps);
+        }
+        catch(Exception e) {
+
+        }
+    }
+
+    public AppFragment()
+    {
+    }
+
+    void initView()
+    {
+
+        gridView = (GridView) view.findViewById(R.id.grid_view);
+        //digitalClock = (DigitalClock) view.findViewById(R.id.analogClock);
+        lyInfo = (LinearLayout) view.findViewById(R.id.ly_analogClock);
+        tvDate = (TextView) view.findViewById(R.id.tv_date);
+        tvTime = (TextView) view.findViewById(R.id.tv_time);
+        tvDeviceName = (TextView) view.findViewById(R.id.tv_deivename);
+        tvIp = (TextView) view.findViewById(R.id.tv_ip);
+        tvMAC = (TextView) view.findViewById(R.id.tv_mac);
+        if (pageNum != 0)
+        {
+            //digitalClock.setVisibility(View.GONE);
+            lyInfo.setVisibility(View.GONE);
+        }
+        else
+        {
+            lyInfo.setVisibility(View.VISIBLE);
+            /*digitalClock.setOnLongClickListener(new View.OnLongClickListener() {
+                @Override
+                public boolean onLongClick(View v) {
+                    Tell.log("你长按了时钟");
+                    return true;
+                }
+            });*/
+            setText();
+        }
+
+        gridView.setOnLongClickListener(new View.OnLongClickListener()
+        {
+            @Override
+            public boolean onLongClick(View v)
+            {
+                final Intent pickWallpaper = new Intent(Intent.ACTION_SET_WALLPAPER);
+                Intent chooser = Intent.createChooser(pickWallpaper, "chooser_wallpaper");
+                //发送设置壁纸的请求
+                startActivity(chooser);
+                return true;
+            }
+        });
+
+    }
+
+    @Override
+    public void onStart()
+    {
+        //gridViewAdpter = new GridViewAdpter(this.context, this.apps);del by gwb;2021.3.25  这块感觉不需要了。而且如果有这一句，登陆失败后再返回会桌面上图标全消失掉。
+        if(gridViewAdpter != null)
+            gridView.setAdapter(gridViewAdpter);
+
+        super.onStart();
+    }
+
+    public String show()
+    {
+        String s = "";
+        for (ResolveInfo one : apps)
+        {
+            s += one.loadLabel(getActivity().getPackageManager()).toString() + " ";
+        }
+        return s;
+    }
+
+
+    @Override
+    public void onDestroyView()
+    {
+        super.onDestroyView();
+        //Tell.log("一页View消掉了--------" + pageNum);
+        mHandler.removeCallbacks(mTicker);
+    }
+
+    @Override
+    public void onDestroy()
+    {
+        super.onDestroy();
+        //Tell.log("一页消掉了--------" + pageNum);
+    }
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState)
+    {
+        super.onCreate(savedInstanceState);
+    }
+
+    @Nullable
+    @Override
+    public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState)
+    {
+        view = inflater.inflate(R.layout.gridview, container, false);
+        initView();
+        startTimeLock();
+        return view;
+    }
+
+    Handler mHandler = new Handler()
+    {
+        @Override
+        public void handleMessage(Message msg)
+        {
+            super.handleMessage(msg);
+            setText();
+            //System.out.println("AppFragment-----handleMessage-----定时时处理");
+        }
+    };
+
+    private void startTimeLock()
+    {
+        if (pageNum != 0)
+        {
+            return;
+        }
+        mTicker = new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                long now = SystemClock.uptimeMillis();
+                long next = now + (1000 - now % 1000);
+                mHandler.sendEmptyMessage(1);
+                mHandler.postAtTime(mTicker, next);
+            }
+        };
+        mTicker.run();
+    }
+
+    private void setText()
+    {
+
+        mCalendar.setTimeInMillis(System.currentTimeMillis());
+        String date = DateFormat.format(mFormat, mCalendar).toString();
+        String time = DateFormat.format(mFormatTime, mCalendar).toString();
+        String deviceName = android.os.Build.DEVICE;
+        //tvDate.setText(date + " v201017\n");
+
+        tvDate.setText(date + " " +szVersionNum + "\n");
+        tvTime.setText(time);
+        tvDeviceName.setText(deviceName);
+        tvIp.setText(DeviceInfoUtil.getPhoneIp());
+        tvMAC.setText(DeviceInfoUtil.getWifiMacAddress());
+        //tvMAC.setText(getWifiMacAddress());
+
+    }
+
+    @Override
+    public void onResume()
+    {
+        super.onResume();
+    }
+
+
+}

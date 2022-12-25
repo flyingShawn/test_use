@@ -1,0 +1,13 @@
+package com.grampus.hualauncherkai.Data;
+
+public class AndroidParameter {
+    public static int width ;
+    public static int hight ;
+    public static float density;
+    public static int densityDpi;
+    public static String serverIp;
+    public static int equipID ;
+    public static int manageID ;
+    public static String centerServerIp ;
+
+}

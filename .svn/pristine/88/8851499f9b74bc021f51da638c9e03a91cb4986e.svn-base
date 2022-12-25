@@ -1,0 +1,78 @@
+<resources>
+    <string name="app_name">EMM</string>
+
+    <string name="btn_back">返回</string>
+    <string name="btn_ok">确定</string>
+    <string name="btn_cancel">取消</string>
+    <string name="btn_reset">重置</string>
+    <string name="btn_exit">退出</string>
+
+    <string name="str_colon">：</string>
+    <string name="str_file_size">安装包大小</string>
+    <string name="str_version">安装包版本</string>
+
+
+    <string name="dialog_json_error">解析JSON异常</string>
+    <string name="dialog_request_error">数据请求失败</string>
+    <string name="dialog_request_data_null">数据返回为空</string>
+    <string name="dialog_file_not_exist">文件不存在</string>
+    <string name="dialog_favorite_invalid">收藏已失效</string>
+    <string name="dialog_exit_title">退出提示</string>
+    <string name="dialog_exit_message">确定退出BuickDoss吗？</string>
+    <string name="dialog_clear_cache">确定删除缓存数据吗？</string>
+    <string name="dialog_sdcard_not_exist">请插入SD卡</string>
+    <string name="dialog_temp_too_much">模板最多可存储50条，请删除不常用模板后再添加</string>
+    <string name="dialog_temp_none_input">模板输入不能为空</string>
+    <string name="dialog_maximum_140">最大允许输入140字符</string>
+    <string name="dialog_maximum_80">最大允许输入80字符</string>
+
+    <!--dialog tips  -->
+    <string name="dialog_title">提示</string>
+    <string name="dialog_logining">正在登录....</string>
+    <string name="dialog_usrnonewan_message">用户名不能为空</string>
+    <string name="dialog_pwdnonewan_message">密码不能为空</string>
+    <string name="dialog_no_network">无法访问网络，请检查网络设置</string>
+    <string name="dialog_network_timeout">网络访问超时，请稍候刷新</string>
+    <string name="dialog_network_timeout_download">下载应用失败，请稍后再试</string>
+    <string name="dialog_refresh_data">正在刷新数据...</string>
+    <string name="dialog_submit_data_success">数据提交成功！</string>
+    <string name="title_activity_settings">管理设置</string>
+
+    <!-- Preference Titles -->
+    <string name="white_list_manage">白名单管控</string>
+    <string name="device_manage">设备管控</string>
+
+    <!-- white_list Preferences -->
+    <string name="wifi_management">WIFI白名单</string>
+    <string name="app_management">APP白名单</string>
+
+    <!-- device Preferences -->
+    <string name="AP_manage">热点管控</string>
+    <string name="USB_manage">USB设备管控</string>
+    <string name="infrared_manage">红外设备管控</string>
+    <string name="bluetooth_manage">蓝牙设备管控</string>
+    <string name="camera_manage">相机管控</string>
+    <string name="attachment_title">Download incoming attachments</string>
+    <string name="attachment_summary_on">Automatically download attachments for incoming emails
+    </string>
+    <string name="attachment_summary_off">Only download attachments when manually requested</string>
+
+    <!-- Messages Preferences -->
+    <string name="signature_title">Your signature</string>
+    <string name="reply_title">Default reply action</string>
+
+
+    <string name="no_permission">无操作权限</string>
+    <string name="disable_warning">取消激活后将导致本软件的部分功能无法正常工作，您确定要取消激活么？</string>
+    <string name="accept_btn">同意</string>
+    <string name="exit_btn">退出</string>
+    <string name="know">已阅读</string>
+    <string name="not_show_anymore">不再提示</string>
+    <string name="title_license">免责声明与软件许可协议</string>
+    <string name="title_permissions">权限使用声明</string>
+    <string name="read_statement">若您点击同意并开始使用本软件，代表您已阅读并接受<a href="http://www.huawei.mdm.com">《免责声明与软件许可协议》</a>。</string>
+    <string name="a11y_desc">阳途屏幕监视和管控辅助功能，未开启状态下无法进行屏幕控制。</string>
+    <string name="float_desc">回到EMM</string>
+    <string name="setting_wifi">前往设置wifi</string>
+
+</resources>

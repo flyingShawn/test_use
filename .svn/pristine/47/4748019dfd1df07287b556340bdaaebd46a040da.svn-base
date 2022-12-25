@@ -1,0 +1,363 @@
+package com.grampus.hualauncherkai.TcpSock;
+
+import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
+import android.util.Log;
+
+import androidx.annotation.RequiresApi;
+
+import com.grampus.hualauncherkai.Data.GlobalPara;
+import com.grampus.hualauncherkai.Data.NetDataHub;
+import com.grampus.hualauncherkai.Data.AndroidParameter;
+import com.grampus.hualauncherkai.service.ScreenCastService;
+
+import java.io.BufferedOutputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.net.SocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.zip.Inflater;
+
+@RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
+public class TcpSocketClient extends Thread {
+
+    private final String TAG = "TcpSocketClient";
+
+    private Socket socket;
+    private OutputStream outputStream;
+    private InputStream inputStream;
+
+    private BufferedOutputStream bufferedOutputStream;
+    private Handler handler;
+    private InetAddress remoteHost;
+    private int remotePort;
+    private CPackOperate m_PackOp;
+    private CPacket m_pack;
+    private int m_nFlag = 0;
+
+    public TcpSocketClient(InetAddress remoteHost, int remotePort) {
+        super( "TcpSocketClientThread");
+        try {
+            // this.remoteHost = remoteHost;
+            // this.remotePort = remotePort;
+
+            String szTemp = AndroidParameter.serverIp;
+            //String szTemp = "127.0.0.1";
+            this.remoteHost = InetAddress.getByName(szTemp);
+            this.remotePort = 6674;
+            m_PackOp = new CPackOperate();
+        }
+        catch(Exception e) {
+
+        }
+    }
+
+
+    public static byte[] decompress(byte[] data) {
+        byte[] output = new byte[0];
+
+        Inflater decompresser = new Inflater();
+        decompresser.reset();
+        decompresser.setInput(data);
+
+        ByteArrayOutputStream o = new ByteArrayOutputStream(data.length);
+        try {
+            byte[] buf = new byte[1024];
+            while (!decompresser.finished()) {
+                int i = decompresser.inflate(buf);
+                o.write(buf, 0, i);
+            }
+            output = o.toByteArray();
+        } catch (Exception e) {
+            output = data;
+            e.printStackTrace();
+        } finally {
+            try {
+                o.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        decompresser.end();
+        return output;
+    }
+    private void WhileRecvDataTh(){
+        System.out.println("WhileRecvDataTh----------begin  threadid:"+android.os.Process.myTid());
+
+
+        int SOCK_MAX_PACKSIZE = 20*1024*1024;
+        int nPackBodySize = 1024*100;
+        ByteBuffer headBuf = ByteBuffer.allocate(100);
+        ByteBuffer bodyBuf = ByteBuffer.allocate(nPackBodySize);
+
+        boolean m_bPackHeadRevEnd = false;
+        boolean m_bCurrentPackRevEnd = false;
+        int m_nCurrentPackRevSize = 0;
+        int m_dwCurrentPackBodySize = 0;
+        int m_dwUnZipBodySize = 0;
+        int m_bIsZip = 0;
+
+
+
+        try {
+
+            //int nRead = inputStream.read(readBuf);
+            //System.out.println("ReadBuf----------nRead:"+nRead);
+            while (true) {
+                int HeadLen = 5 * 4;//sizeof(P_PACKHEAD);
+                if (!m_bPackHeadRevEnd) {
+                    int nRec = inputStream.read(headBuf.array(), m_nCurrentPackRevSize, HeadLen - m_nCurrentPackRevSize);
+                    if (nRec <= 0) {
+                        System.out.println("WhileRecvDataTh------sock read header error.");
+                        break;
+                    } else {
+                        m_nCurrentPackRevSize += nRec;
+                        if (m_nCurrentPackRevSize == HeadLen)//包头接全了
+                        {
+                            m_bPackHeadRevEnd = true;
+                            m_bCurrentPackRevEnd = false;
+                            m_nCurrentPackRevSize = 0;
+
+                            int nPackFlag = headBuf.order(ByteOrder.LITTLE_ENDIAN).getInt( );
+                            //int nPackFlag = SockTransfer.int32Reverse(headBuf.getInt());
+
+                            if (nPackFlag != GlobalPara.PACK_IDENTIFY) {
+                                System.out.println("WhileRecvDataTh------packHead.nPackFlag != PACK_IDENTIFY error.");
+                                break;
+                            }
+                            headBuf.position(8);
+                            m_bIsZip = headBuf.order(ByteOrder.LITTLE_ENDIAN).getInt();
+                            m_dwUnZipBodySize = headBuf.order(ByteOrder.LITTLE_ENDIAN).getInt();
+
+                            headBuf.position(16);
+                            //m_dwCurrentPackBodySize = SockTransfer.int32Reverse(headBuf.getInt());
+                            m_dwCurrentPackBodySize = headBuf.order(ByteOrder.LITTLE_ENDIAN).getInt( );
+
+                            if (m_dwCurrentPackBodySize == 0) {
+                                m_bPackHeadRevEnd = false;
+                                m_bCurrentPackRevEnd = false;
+                                m_nCurrentPackRevSize = 0;
+                                headBuf.position(0);
+
+                                m_PackOp.OnReceivePack(bodyBuf);
+                                continue;
+                            }
+
+                            if (m_dwCurrentPackBodySize > nPackBodySize) {
+                                bodyBuf = ByteBuffer.allocate(m_dwCurrentPackBodySize);
+                                nPackBodySize = m_dwCurrentPackBodySize;
+                            } else if (m_dwCurrentPackBodySize > SOCK_MAX_PACKSIZE) {
+                                System.out.println("WhileRecvDataTh------pack too large error.");
+                                break;
+                            }
+                        }
+                    }
+                } else if (!m_bCurrentPackRevEnd) {
+                    int nRec = inputStream.read(bodyBuf.array(), m_nCurrentPackRevSize, m_dwCurrentPackBodySize - m_nCurrentPackRevSize);
+                    if (nRec <= 0) {
+                        System.out.println("WhileRecvDataTh------sock read body error.");
+                        break;
+                    } else {
+                        //WriteLogEx(_T("RecvDataTh--Body----m_hsock:%d---接包身 nRec:%d"),nRec,m_hsock);
+
+                        m_nCurrentPackRevSize += nRec;
+                        if (m_nCurrentPackRevSize == m_dwCurrentPackBodySize)//接全包身
+                        {
+                            //WriteLogEx(_T("RecvDataTh--Body----nRec:%d---m_hsock:%d---包身接成功"),nRec,m_hsock);
+
+                            m_bPackHeadRevEnd = false;
+                            m_bCurrentPackRevEnd = false;
+                            m_nCurrentPackRevSize = 0;
+
+                            if(m_bIsZip==1 && m_dwUnZipBodySize>0){
+                                ByteBuffer unzipByteBuf = ByteBuffer.allocate(m_dwUnZipBodySize);
+                                unzipByteBuf.put(decompress(bodyBuf.array()));
+                                m_PackOp.OnReceivePack(unzipByteBuf);
+                            }
+                            else {
+                                m_PackOp.OnReceivePack(bodyBuf);
+                            }
+                            bodyBuf.rewind();
+                            headBuf.rewind();
+                        }
+                    }
+                }
+            }
+        }
+        catch(IOException e){
+          Log.e("OnReceivePack","TCPsocket -socket["+socket+"]---error--" + e.toString());
+          NetDataHub.get().addLog("TCPsocketClient--socket["+socket+"]------error-" + e.toString());
+          e.printStackTrace();
+        }
+        finally {
+
+            close();
+        }
+
+    }
+
+    @Override
+    public void run() {
+        try {
+            socket = new Socket();
+            SocketAddress socAddress = new InetSocketAddress(remoteHost, remotePort);
+            socket.connect(socAddress, 3000);
+            //socket = new Socket(remoteHost, remotePort);
+            outputStream = socket.getOutputStream();
+            inputStream = socket.getInputStream();
+            //bufferedOutputStream = new BufferedOutputStream(outputStream);//del by gwb;感觉没有必要用这个。用了BufferedOutputStream还得flush数据才真实发。
+
+            m_pack = new CPacket();
+            m_pack.m_nUniqueID = m_PackOp.m_nUniqueID;
+
+            int screenWidth =  AndroidParameter.width;  //
+            int screenHeight = AndroidParameter.hight; //
+
+           String szIP = AndroidParameter.serverIp;
+//            String szIP = "192.168.1.150";
+            String szMac = "48:2c:a0:ce:f2:ea";
+//            String szMac = "02:15:b2:00:00:00";
+            String szHostName = "test003";
+
+            int nUniqueID = NetDataHub.get().g_nEquipID;
+
+            m_pack.m_nUniqueID = nUniqueID;
+            m_pack.SendFirstPack(outputStream);
+
+
+            if(m_pack.SendLogonInfo(outputStream,szIP,szMac,szHostName,nUniqueID,screenHeight,screenWidth) == false)
+            {
+
+            }
+            System.out.println("tcp----------begin  threadid:"+android.os.Process.myTid());
+
+            new Thread(new Runnable() { // 匿名类的Runnable接口
+                @Override
+                public void run() {
+                    WhileRecvDataTh();
+                }
+            }).start();
+
+            Looper.prepare();
+            handler = new Handler() {       //080300  002 Handler的创建
+                @Override
+                public void handleMessage(Message message) {
+                    if(message == null || message.obj == null) return;
+                    byte[] msg = (byte[])message.obj;
+                    try {
+                        if(socket != null) {
+                            int nHeadLen = 1+7*4;
+                            ByteBuffer buf = ByteBuffer.allocate(nHeadLen+msg.length);
+                            byte bImageType = 4;
+                            buf.put(bImageType);
+                            buf.putInt(0);
+                            buf.putInt(0);
+                            buf.putInt(0);
+                            buf.putInt(0);
+                            //----------------
+                            buf.put(com.grampus.hualauncherkai.TcpSock.SockTransfer.toLH(msg.length));
+                            buf.putInt(0);
+                            buf.put(SockTransfer.toLH(m_PackOp.m_nUniqueID));
+                            buf.put(msg);
+
+
+                                m_pack.SendScreenCmd(outputStream,GlobalPara.WM_SEND_IMAGE_DATA,buf.array());         //080300 00发送屏幕操作
+                            //bufferedOutputStream.write(msg);
+                            System.out.println("handleMessage-------WM_SEND_IMAGE_DATA发送字节数为:" + msg.length + "线程ID:" + android.os.Process.myTid());
+                        }
+                        //sleep(15000);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        close();
+                    }
+                }
+            };
+            Looper.loop();
+
+        } catch (Exception e) {
+            Log.e(TAG, "Socket create failed --------" + e.toString());
+            NetDataHub.get().addLog("Socket create failed ---------" + e.toString());
+            socket = null;
+            outputStream = null;
+            bufferedOutputStream = null;
+        }
+    }
+
+
+    public void close() {
+        Log.d("OnReceivePack","TCPsocket close");
+
+        if (socket != null) {
+            try {
+                Log.d("OnReceivePack","TCPsocket close -----socket.close()");
+                socket.close();
+
+            } catch (IOException e) {
+                Log.e("OnReceivePack","TCPsocket close error-----"+e.toString());
+                e.printStackTrace();
+            } finally {
+                socket = null;
+                outputStream = null;
+                bufferedOutputStream = null;
+            }
+        }
+        if(ScreenCastService.mScreenCastService!=null)
+        {
+            Log.w("OnReceivePack","mScreenCastService -----!=null");
+            ScreenCastService.mScreenCastService.onDestroy();
+        }
+    }
+
+    public void send(final byte[] data) {       ///080300 03 send ,   handle对象发送message和传递runnable对象
+        if(handler == null || socket == null || outputStream == null)  {
+            return;
+        }
+
+        try {
+           // if(!m_PackOp.m_bStartCapture)
+           //     return ;
+            //System.out.println("send----------调用发送:" + data.length + "线程ID:" + android.os.Process.myTid());
+
+//            outputStream.write(data);
+
+            try {
+                //String path = "/data/data/com.github.magicsih.androidscreencaster/tel-after2.h264";//080300fsy H264
+
+                if(data.length>0  ) {
+
+                    m_nFlag ++;
+                //    FileOutputStream fos = new FileOutputStream(path,true);
+
+                 //   fos.write(data);
+                 //   fos.flush();
+                 //   fos.close();
+
+                    Message message = handler.obtainMessage();
+                    message.obj = data;
+                    handler.sendMessage(message);   //判断发送失败，断开
+                }
+
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            //----------------end.
+
+
+
+            //System.out.println("send----消息之后结束-------调用发送:" + data.length + "线程ID:" + android.os.Process.myTid());
+        }
+        catch(Exception e){
+            e.printStackTrace();
+        }
+    }
+}

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <PreferenceCategory android:title="管理设置">
+        <Preference
+            android:key="whiteApp_list"
+            android:title="App白名单设置"
+            android:icon="@drawable/white_list">
+        </Preference>
+        <Preference
+            android:key="whiteWifi_list"
+            android:title="Wifi白名单设置"
+            android:icon="@drawable/white_list">
+        </Preference>
+        <Preference
+            android:key="device_manage"
+            android:title="设备管控"
+            android:icon="@drawable/device_manage">
+
+        </Preference>
+
+        <Preference
+            android:key="admin_settings"
+            android:title="系统设置"
+            android:icon="@drawable/settings">
+
+        </Preference>
+        <Preference
+            android:key="update_self"
+            android:title="升级版本"
+            android:icon="@drawable/log">
+        </Preference>
+        <Preference
+            android:key="view_log"
+            android:title="查看日志"
+            android:icon="@drawable/log">
+        </Preference>
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

@@ -1,0 +1,73 @@
+package com.grampus.hualauncherkai.FloatWindow;
+
+import android.content.Context;
+import android.graphics.PixelFormat;
+import android.graphics.Point;
+import android.os.Build;
+import android.util.Log;
+import android.view.Gravity;
+import android.view.WindowManager;
+import android.view.WindowManager.LayoutParams;
+
+public class EMMForbidWifiWindowManager {
+    private static EMMForbidWifiWindow smallWindow;
+    private static LayoutParams smallWindowParams;
+    private static WindowManager mWindowManager;        //用于控制在屏幕上添加或移除悬浮窗。
+    private final static String TAG = "EMMFloatWindowManager";
+    public static void createSmallWindow(Context context) {
+        try {
+           WindowManager windowManager = getWindowManager(context);
+            Point spt = new Point();
+            windowManager.getDefaultDisplay().getSize(spt);
+            int screenWidth = spt.x;
+            int screenHeight = spt.y;
+            if (smallWindow == null) {
+                smallWindow = new EMMForbidWifiWindow(context);
+               if (smallWindowParams == null) {
+                    Log.i(TAG,"smallWindowParams == null" );
+                    smallWindowParams = new LayoutParams();
+                    if (Build.VERSION.SDK_INT <= 19) {
+                        smallWindowParams.type = LayoutParams.TYPE_PHONE;
+                    } else {
+                        smallWindowParams.type = LayoutParams.TYPE_APPLICATION_OVERLAY;
+                    }
+                    smallWindowParams.format = PixelFormat.RGBA_8888;
+                    smallWindowParams.flags = LayoutParams.FLAG_NOT_TOUCH_MODAL
+                            | LayoutParams.FLAG_NOT_FOCUSABLE;
+                    smallWindowParams.gravity = Gravity.LEFT | Gravity.TOP;
+                    smallWindowParams.x = screenWidth;
+                    smallWindowParams.y = (int)(screenHeight*0.8);
+                    smallWindowParams.width = EMMForbidWifiWindow.viewWidth;
+                    smallWindowParams.height = EMMForbidWifiWindow.viewHeight;
+                    //Log.i(TAG,"smallWindowParams == null" );
+                }
+                /* smallWindow.setParams(smallWindowParams);*/
+                windowManager.addView(smallWindow, smallWindowParams);
+                Log.i(TAG,"createSmallWindow-----end" );
+            }
+        }catch (Exception e)
+        {
+            System.out.println("updateViewPosition  error :"+e.toString());
+            Log.e(TAG,"updateViewPosition  error :"+e.toString());
+        }
+    }
+
+    public static void removeSmallWindow(Context context) {
+        if (smallWindow != null) {
+            WindowManager windowManager = getWindowManager(context);
+            windowManager.removeView(smallWindow);
+            smallWindow = null;
+        }
+    }
+
+    public static boolean isWindowShowing() {
+        return smallWindow!=null;
+    }
+
+    public static WindowManager getWindowManager(Context context) {
+        if (mWindowManager == null) {
+            mWindowManager = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
+        }
+        return mWindowManager;
+    }
+}

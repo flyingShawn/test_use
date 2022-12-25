@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/activity_main"
+    android:layout_width="match_parent"
+    android:fitsSystemWindows="true"
+    android:layout_height="match_parent"
+    tools:context="com.grampus.hualauncherkai.UI.MainActivity">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="100dp"
+        android:layout_alignParentBottom="true"
+        android:orientation="horizontal"
+        android:id="@+id/linearLayout"
+        android:background="@color/dockColor">
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:padding="10dp"
+            android:layout_weight="1"
+            android:id="@+id/offen_layout1"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <ImageView
+                android:id="@+id/offen_icon1"
+                style="@style/OffenIcon"
+                android:layout_gravity="center_horizontal" />
+
+            <TextView
+                android:id="@+id/offen_text1"
+                android:textColor="@android:color/white"
+                android:layout_width="match_parent"
+                android:textSize="10dp"
+                android:layout_height="wrap_content"
+                android:gravity="center" />
+
+        </LinearLayout>
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:padding="10dp"
+            android:layout_weight="1"
+            android:id="@+id/offen_layout2"
+
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <ImageView
+                android:id="@+id/offen_icon2"
+                style="@style/OffenIcon"
+                android:layout_gravity="center_horizontal" />
+
+            <TextView
+                android:id="@+id/offen_text2"
+                android:textColor="@android:color/white"
+                android:layout_width="match_parent"
+                android:textSize="10dp"
+                android:layout_height="wrap_content"
+                android:gravity="center" />
+
+        </LinearLayout>
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:padding="10dp"
+            android:layout_weight="1"
+            android:id="@+id/offen_layout3"
+
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <ImageView
+                android:id="@+id/offen_icon3"
+                style="@style/OffenIcon"
+                android:layout_gravity="center_horizontal" />
+
+            <TextView
+                android:id="@+id/offen_text3"
+                android:textColor="@android:color/white"
+                android:layout_width="match_parent"
+                android:textSize="10dp"
+                android:layout_height="wrap_content"
+                android:gravity="center" />
+
+        </LinearLayout>
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:padding="10dp"
+            android:layout_weight="1"
+            android:id="@+id/offen_layout4"
+
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <ImageView
+                android:id="@+id/offen_icon4"
+                style="@style/OffenIcon"
+                android:layout_gravity="center_horizontal" />
+
+            <TextView
+                android:id="@+id/offen_text4"
+                android:textColor="@android:color/white"
+                android:layout_width="match_parent"
+                android:textSize="10dp"
+                android:layout_height="wrap_content"
+                android:gravity="center" />
+
+        </LinearLayout>
+
+
+    </LinearLayout>
+
+
+    <com.grampus.hualauncherkai.Tools.MyViewPager
+        android:id="@+id/view_pager"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true"
+        android:layout_above="@+id/linearLayout"
+        android:background="#4682B4">
+
+    </com.grampus.hualauncherkai.Tools.MyViewPager>
+
+
+
+
+</RelativeLayout>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <PreferenceCategory android:title="白名单设置">
+        <Preference
+            android:key="wifi_manage"
+            android:title="WIFI白名单"
+            android:summary="设置可以连接的无线网络"
+            android:icon="@drawable/wifi_manage">
+
+        </Preference>
+
+        <Preference
+            android:key="app_manage"
+            android:title="APP白名单"
+            android:summary="设置可以使用的应用程序"
+            android:icon="@drawable/app_manage">
+
+        </Preference>
+    </PreferenceCategory>
+
+</PreferenceScreen>

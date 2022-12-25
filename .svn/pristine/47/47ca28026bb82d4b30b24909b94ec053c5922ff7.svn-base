@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <PreferenceCategory android:title="更多设置">
+        <Preference
+            android:key="go_open_a11y"
+            android:title="开启辅助功能"
+            android:icon="@drawable/settings">
+        </Preference>
+        <Preference
+            android:key="obtain_screencast"
+            android:title="获取截屏权限"
+            android:icon="@drawable/settings">
+        </Preference>
+        <Preference
+            android:key="set_text_color"
+            android:title="设置文字颜色"
+            android:icon="@drawable/settings">
+        </Preference>
+
+        <Preference
+            android:key="connet_white_wifi"
+            android:title="连接白名单wifi"
+            android:icon="@drawable/settings">
+        </Preference>
+
+   <!--
+        <Preference
+            android:key="update_self"
+            android:title="升级版本"
+            android:icon="@drawable/log">
+        </Preference>
+        <Preference
+            android:key="view_log"
+            android:title="查看日志"
+            android:icon="@drawable/log">
+        </Preference>
+-->
+    </PreferenceCategory>
+
+</PreferenceScreen>

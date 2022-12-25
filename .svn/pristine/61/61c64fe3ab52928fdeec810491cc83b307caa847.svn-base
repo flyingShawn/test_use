@@ -1,0 +1,587 @@
+package com.grampus.hualauncherkai.UI;
+
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.graphics.PorterDuff;
+import android.media.projection.MediaProjectionManager;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
+import android.util.Log;
+import android.view.KeyEvent;
+import android.view.View;
+import android.view.inputmethod.EditorInfo;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.FrameLayout;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.annotation.RequiresApi;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
+
+import com.grampus.hualauncherkai.Data.AndroidParameter;
+import com.grampus.hualauncherkai.Data.NetCtrlHub;
+import com.grampus.hualauncherkai.Data.NetDataHub;
+import com.grampus.hualauncherkai.Data.SystemDataGet;
+import com.grampus.hualauncherkai.R;
+import com.grampus.hualauncherkai.Tools.HttpRequest;
+import com.grampus.hualauncherkai.Tools.Save;
+import com.grampus.hualauncherkai.Tools.Tell;
+import com.grampus.hualauncherkai.service.EMMAccessibilityService;
+import com.grampus.hualauncherkai.util.DeviceInfoUtil;
+
+import java.lang.reflect.Method;
+
+import static com.grampus.hualauncherkai.Tools.DeviceUtils.setStatusBarColor;
+import static com.grampus.hualauncherkai.UI.MainActivity.g_bUseHuaWeiMDM;
+import static com.grampus.hualauncherkai.util.DeviceInfoUtil.isPad;
+
+public class LoginSetting extends AppCompatActivity
+{
+
+
+    Button go_login;
+    EditText admin_id;
+    EditText admin_pw;
+    EditText service_ad;
+    Button go_offline_delete;
+    Button btn_view_policy;
+    Button go_open_a11y;
+    Button obtain_screencast;
+    Button set_text_color;
+
+
+    private androidx.core.widget.ContentLoadingProgressBar loginLoadingBar;
+    private FrameLayout loginView;
+
+
+    boolean isRetry = true;
+    private MediaProjectionManager mediaProjectionManager;
+
+
+    String ad;
+    String id;
+    String pw;
+
+    Handler handler = new Handler()
+    {
+        @Override
+        public void handleMessage(Message msg)
+        {
+            if (msg.what == 1)
+            {
+                Tell.toast("登录成功", getApplicationContext());
+
+
+                loginOK();
+
+
+                if(g_bUseHuaWeiMDM){
+                    NetDataHub.get().setHuaWeiDesktop(LoginSetting.this);//add by gwb;2020.10.9
+
+
+                }
+            }
+            else if (msg.what == 2)
+            {
+                Tell.toast("登录失败" + msg.obj, getApplicationContext());
+            }
+            else if (msg.what == 3)
+            {
+                //Toast.makeText(this, "fffffffffffff！",Toast.LENGTH_SHORT).show();
+                //Toast.makeText(LoginSetting.this, "设备管理未激活", Toast.LENGTH_SHORT).show();
+                Tell.toast((String) msg.obj, getApplicationContext());
+            }
+        }
+    };
+    
+    /**
+    * @author  fsy
+    * @date    2022/2/17 14:56
+    * @return
+    * @description  选择字体颜色
+    */
+    private void chooseTextColor(){
+        try{
+            // 颜色格式
+            final String[] items = new String[] { "白色", "黑色" };
+
+            // 创建对话框构建器
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            // 设置参数
+            String colorItem = Save.getValue(AndroidParameter.mainContext, "TEXT_COLOR", "0");
+
+            builder.setIcon(R.drawable.ic_launcher).
+                    setTitle("请选择桌面主题文字的颜色")
+                    .setSingleChoiceItems(items, Integer.parseInt(colorItem), new DialogInterface.OnClickListener() {
+
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            Save.putValue(AndroidParameter.mainContext,"TEXT_COLOR",String.valueOf(which)); //将选择的是第几项保存在文件
+                            // TODO Auto-generated method stub
+                        }
+                    });
+            builder.setPositiveButton("确定", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            DeviceInfoUtil.getTextColor();
+                            Toast.makeText(LoginSetting.this, "设置完成，请重启应用刷新",
+                                    Toast.LENGTH_SHORT).show();
+                        }
+            }).show();
+           // builder.create();
+        }catch (Exception e){
+            Log.e("EMMMain","Login-e:"+e.toString());
+        }
+    }
+
+    //没有系统权限签名
+    private void shutDown() {
+        //shutdown now
+        String action = "android.intent.action.ACTION_REQUEST_SHUTDOWN";
+        Intent shutdown = new Intent(action);
+        shutdown.putExtra("android.intent.extra.KEY_CONFIRM", false);
+        shutdown.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            startActivity(shutdown);
+            finish();
+        }catch(Exception e){
+            Tell.toast(e.toString(),getApplication());
+            //e.printStackTrace();
+        }
+
+    }
+    //利用反射调用oIPowerManager方法，在有些机型上可行的
+    private void shutDown1() {
+        try {
+            //获得ServiceManager类
+            Class<?> ServiceManager = Class
+                    .forName("android.os.ServiceManager");
+
+            //获得ServiceManager的getService方法
+            Method getService = ServiceManager.getMethod("getService", java.lang.String.class);
+
+            //调用getService获取RemoteService
+            Object oRemoteService = getService.invoke(null,Context.POWER_SERVICE);
+
+            //获得IPowerManager.Stub类
+            Class<?> cStub = Class
+                    .forName("android.os.IPowerManager$Stub");
+            //获得asInterface方法
+            Method asInterface = cStub.getMethod("asInterface", android.os.IBinder.class);
+            //调用asInterface方法获取IPowerManager对象
+            Object oIPowerManager = asInterface.invoke(null, oRemoteService);
+            //获得shutdown()方法
+            Method shutdown = oIPowerManager.getClass().getMethod("shutdown",boolean.class,boolean.class);
+            //调用shutdown()方法
+            shutdown.invoke(oIPowerManager,false,true);
+        }catch(Exception e){
+            Tell.toast(e.toString(),getApplication());
+            //e.printStackTrace();
+        }
+
+    }
+    void initView()
+    {
+        go_offline_delete = findViewById(R.id.go_offline_delete);
+        btn_view_policy = findViewById(R.id.view_policy);
+        go_login = findViewById(R.id.go_login);
+        admin_id = findViewById(R.id.admin_id);
+        admin_pw = findViewById(R.id.admin_pw);
+        service_ad = findViewById(R.id.service_ad);
+        service_ad.setText(NetCtrlHub.get().getServiceAd());
+        loginLoadingBar = findViewById(R.id.login_loadingBar);
+        loginLoadingBar.getIndeterminateDrawable().setColorFilter(ContextCompat.getColor(LoginSetting.this, R.color.brightBlue), PorterDuff.Mode.MULTIPLY);
+
+        go_open_a11y = findViewById(R.id.go_open_a11y);
+        obtain_screencast = findViewById(R.id.obtain_screencast);
+        set_text_color = findViewById(R.id.set_text_color);
+
+        loginView = findViewById(R.id.login_view);
+
+        go_open_a11y.setOnClickListener(new View.OnClickListener()
+        {
+            @Override
+            public void onClick(View v)
+            {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
+                    if (!EMMAccessibilityService.isStart()) {
+                        try {
+                            Log.w("EMMScreen", "辅助功能未开启，跳转开启服务" );
+                            startActivity(new Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS));
+
+                        } catch (Exception e) {
+                            startActivity(new Intent(android.provider.Settings.ACTION_SETTINGS));
+                            Log.e("EMMScreen", "辅助功能未开启，跳转出错 Exception:" + e.toString());
+                            e.printStackTrace();
+                        }
+                    }
+                    else
+                    {
+                        Tell.toast("辅助功能已开启，无需跳转",getApplication());
+                    }
+                }
+            }
+        });
+        set_text_color.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                chooseTextColor();
+            }
+        });
+       ///* 获取截屏权限的测试 del by fsy 2021.9.29
+       obtain_screencast.setOnClickListener(new View.OnClickListener()
+        {
+            @Override
+            public void onClick(View v)
+            {
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    if(getResultData())
+                    {
+                        Tell.toast("截屏权限已获取，无需重复操作",getApplication());
+                    }
+                }
+/*
+                //测试2
+                if(AndroidParameter.canSendLog){
+                    AndroidParameter.canSendLog = false;
+                    Tell.toast("停止发送日志",getApplication());
+                }
+
+                //(AndroidParameter.mainContext);
+                shutDown1();
+
+                //测试2
+                if(AndroidParameter.canSendLog){
+                    AndroidParameter.canSendLog = false;
+                    Tell.toast("停止发送日志",getApplication());
+                }else{
+                    AndroidParameter.canSendLog = true;
+                    Tell.toast("发送日志",getApplication());
+                }
+
+//*/
+
+
+/*测试视频支持的格式1
+                int numCodecs = MediaCodecList.getCodecCount();
+                Log.w("EMM","numCodecs="+numCodecs);
+                NetDataHub.get().addLog("numCodecs="+numCodecs);
+                for (int i = 0; i < numCodecs; i++) {
+                    // 编解码器相关性信息存储在MediaCodecInfo中
+                    MediaCodecInfo codecInfo = MediaCodecList.getCodecInfoAt(i);
+                    // 判断是否为编码器
+                    if (!codecInfo.isEncoder()) {
+                        continue;
+                    }
+                    // 获取编码器支持的MIME类型，并进行匹配
+                    String[] types = codecInfo.getSupportedTypes();
+                    for (int j = 0; j < types.length; j++) {
+                        //     Log.w("EMM","i="+i+"|types:"+types[j]+"|name:"+codecInfo.getName());
+
+                        NetDataHub.get().addLog("i="+i+"|types:"+types[j]);
+                    }
+                }
+*/
+
+
+            }
+        });//*/
+        go_offline_delete.setOnClickListener(new View.OnClickListener()
+        {
+            @Override
+            public void onClick(View v)
+            {
+                startActivity(new Intent(LoginSetting.this, OfflineDelete.class));
+                finish();
+            }
+        });
+        btn_view_policy.setOnClickListener(new View.OnClickListener()//add by gwb;2020.10.15
+        {
+            @Override
+            public void onClick(View v)
+            {
+                String adminid = "";
+                String adminpwd = "";
+
+                adminid = Save.getValue(LoginSetting.this, "admin_id", "");
+                adminpwd = Save.getValue(LoginSetting.this, "admin_pwd", "");
+
+                id = admin_id.getText().toString();
+                pw = admin_pw.getText().toString();
+                if ( id.equals(adminid)  && pw.equals(adminpwd))
+                {
+                    startActivity(new Intent(getApplicationContext(), SettingsPhone.class));
+                    finish();
+                }
+                else {
+                    Tell.toast("用户名或密码不对，请使用上次成功登陆的帐号和密码重试！", getApplicationContext());
+                    return;
+                }
+            }
+        });
+
+        go_login.setOnClickListener(new View.OnClickListener()
+        {
+            @Override
+            public void onClick(View v)
+            {
+                if(AndroidParameter.screenCapture){
+                    handler.sendEmptyMessage(1);
+                }
+
+                ad = service_ad.getText().toString();
+
+                if(ad.compareToIgnoreCase("log") == 0)//add by gwb;2020.10.12
+                {
+                    Intent intent = new Intent(LoginSetting.this,LogActivity.class);
+                    startActivity(intent);
+                    finish();
+                    return ;
+                }
+
+                //添加默认不输入端口的判断
+                if (ad.indexOf(":") == -1)
+                {
+                    ad = ad + ":16670";
+                }
+
+
+
+                id = admin_id.getText().toString();
+                pw = admin_pw.getText().toString();
+                if (ad.equals("") || id.equals("") || pw.equals(""))    //密码可为空
+                {
+                    Tell.toast("不能有空项", getApplicationContext());
+
+                    Log.w("EMMLogin","不能有空项");
+                    return;
+                }
+
+             //   loginLoadingBar.setVisibility(View.VISIBLE);
+
+                new Thread(new Runnable(){
+                    @Override
+                    public void run()
+                    {
+                        try
+                        {
+                            //-----------add  bt gwb;2020.9.14
+                     //       String TelVersion = android.os.Build.MODEL;
+                     //       TelVersion = TelVersion.replaceAll(" ", "-");//发现如果里面有空格，则认证一定不成功。
+
+                            DeviceInfoUtil.initDeviceInfo();
+
+                            String szHostName =   android.os.Build.BRAND+"-" + AndroidParameter.deviceName;// 手机品牌+手机型号
+
+                            szHostName = szHostName.replaceAll(" ", "-");//发现如果里面有空格，则认证一定不成功。
+
+                            String url = "http://" + ad + "/TelSafeDesk.php?Action=login&Mac=" +
+                                    SystemDataGet.getMacAddress(LoginSetting.this)
+                                    + "&Ip=" + SystemDataGet.getIp(getApplicationContext())
+                                    + "&TelVersion=" + szHostName
+                                    + "&UserName=" + id
+                                    + "&Pwd=" + pw
+                                    + "&DiskNum=" + AndroidParameter.diskNum;   //add by fsy 2022.4.22
+
+                            Log.w("EMMLogin","Login url:"+url);
+
+                            String result = HttpRequest.httpGet(url, null);
+
+                            //2021.3.17 注意：服务器php文件必须是没有UTF8 3个字节头的文件，否则这边一直会判断失败，应该返回的数据CHECKOK前面多了UTF8头了。
+                            String re = "";
+ 							//mod by fsy 2021.11.3 如果有UFT8的签名头，去掉
+                            if(65279==(int)result.charAt(0))   
+                            {
+                                re = result.substring(1);
+                            }else
+                            {
+                                re = result;
+                            }
+
+                            if ("CHECKOK".equals(re))
+                            {
+                                Log.w("EMMLogin","CHECKOK");
+                                //System.out.println("登陆-----CHECKOK.");
+                                handler.sendEmptyMessage(1);
+
+                                Save.putValue(LoginSetting.this, "admin_id", id);//add by gwb;2020.10.15
+                                Save.putValue(LoginSetting.this, "admin_pwd", pw);
+                            }
+                            else
+                            {
+                                Log.w("EMMLogin","CHECKError");
+                                //System.out.println("登陆-----CHECKError.");
+                                Message message = new Message();
+                                if (re != null && re.length() > 0)
+                                {
+                                    Log.w("EMMLogin","用户名或密码错误");
+                                    Tell.toast("登录失败" , getApplicationContext());
+                                    //message.obj = "登录失败:" + "\n" + "url=" + url + "\n" + "后台LOG：" + re;
+                                    message.obj = "登录失败：用户名或密码错误["+re+"]";
+                                    //loginLoadingBar.setVisibility(View.INVISIBLE);  del by gwb;2020.9.23 线程里操作界面可能报错，先删除了
+                                }
+                                else
+                                {
+
+                                    Log.w("EMMLogin","登录失败");
+                                    //message.obj = "登录失败:" + "\n" + "url=" + url;
+                                    message.obj = "登录失败!";
+                                    //loginLoadingBar.setVisibility(View.INVISIBLE); del by gwb;2020.9.23 线程里操作界面可能报错，先删除了
+                                }
+                                message.what = 3;
+                                handler.sendMessage(message);
+                            }
+
+                        }
+                        catch (Exception e)
+                        {
+                            Tell.log(e.toString());
+                            Message message = new Message();
+                            message.what = 2;
+                            //message.obj = e.toString();
+                            message.obj = "登录失败：网络连接异常！";
+                            handler.sendMessage(message);
+                            //loginLoadingBar.setVisibility(View.INVISIBLE); del by gwb;2020.9.23 当登陆失败时，好像调用到这个会报错。线程里能直接调用界面吗？
+                        }
+                    }
+                }).start();
+                Log.w("EMMLogin","Login end");
+
+            }
+        });
+
+
+        admin_pw.setOnEditorActionListener(new TextView.OnEditorActionListener()
+        {
+            @Override
+            public boolean onEditorAction(TextView v, int actionId, KeyEvent event)
+            {
+                if (actionId == EditorInfo.IME_ACTION_NEXT)
+                {//判断动作标识是否匹配
+                    // To do something
+                }
+                if (actionId == EditorInfo.IME_ACTION_GO)
+                {
+                    go_login.performClick();
+                }
+                return false;
+            }
+        });
+
+    }
+
+
+    /**
+     * 添加平板和手机的判定
+     */
+    void loginOK()
+    {
+        NetCtrlHub.get().setServiceAd(ad);
+
+
+        NetDataHub.m_ManagerLogon = true;//add by gwb;2020.9.16  刚登陆成功。
+
+
+        sendBroadcastInfo();
+
+        loginLoadingBar.setVisibility(View.INVISIBLE);
+        if (isPad(getApplicationContext()))
+        {
+            startActivity(new Intent(getApplicationContext(), AdminSettings.class));
+            finish();
+        }
+        else
+        {
+            startActivity(new Intent(getApplicationContext(), SettingsPhone.class));
+            finish();
+        }
+//        startActivity(new Intent(getApplicationContext(), Setting.class));
+//        finish();
+    }
+
+    private void sendBroadcastInfo()
+    {
+        Intent intent = new Intent();
+        intent.setAction("com.grampus.hualauncherkai.action.START_RECEIVER");
+        sendBroadcast(intent);
+    }
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState)
+    {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_setting_login);
+
+        Log.w("EMMLogin", "LoginSetting------onCreate---");
+       // g_context= getApplicationContext();
+        initView();
+
+        setStatusBarColor(this, R.color.brightBlue);
+
+//       setNavigationBarColor(this, R.color.brightBlue);
+    }
+
+///*  获取截屏权限的测试 del by fsy 2021.9.29
+    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
+    protected Boolean getResultData(){
+        if(AndroidParameter.resultData == null)//resultCode == 0
+        {
+
+
+            this.mediaProjectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+            startActivityForResult(mediaProjectionManager.createScreenCaptureIntent(), 300);
+
+            if(EMMAccessibilityService.isStart())
+            {
+                //Log.i("EMMScreen", "MyAccessibilityService.mService已启动" );
+               // EMMAccessibilityService.getInstance().isAutoAgree = true;  老方式，不用了 fsy
+
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        EMMAccessibilityService.getInstance().agreeScreenCast();
+                    }
+                }).start();
+            }
+
+
+            return false;
+        }
+        return true;
+    }//*/
+
+
+   @Override
+    protected void onActivityResult(int requestCode, int resultCode,Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        //此处可以根据两个Code进行判断，本页面和结果页面跳过来的值
+
+       if (requestCode == 300) {
+            if (resultCode != Activity.RESULT_OK) {
+                    //this.g_mediaProjectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+                if(isRetry) //再次申请
+                {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                        startActivityForResult(mediaProjectionManager.createScreenCaptureIntent(), 300);
+                    }
+                    isRetry= false;
+                }
+            } else {
+                Log.w("EMMScreen", "Starting screen capture requestCode"+requestCode+"data:"+data.toString());
+                AndroidParameter.resultCode = resultCode;
+                AndroidParameter.resultData = data; //其他可赋值，主要在于data
+            }
+        }
+
+    }
+
+
+}

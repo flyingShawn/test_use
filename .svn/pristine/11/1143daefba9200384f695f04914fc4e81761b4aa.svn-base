@@ -1,0 +1,1155 @@
+package com.grampus.hualauncherkai.Data;
+
+import android.app.Activity;
+import android.app.Dialog;
+import android.app.admin.DevicePolicyManager;
+import android.content.ComponentName;
+import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Rect;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
+import android.os.Build;
+import android.os.Handler;
+import android.os.Message;
+import android.os.SystemClock;
+import android.os.UserManager;
+
+import androidx.annotation.RequiresApi;
+
+import com.grampus.hualauncherkai.R;
+import com.grampus.hualauncherkai.TcpSock.CLogonSock;
+import com.grampus.hualauncherkai.Tools.DeviceReceiver;
+import com.grampus.hualauncherkai.Tools.DownFile;
+import com.grampus.hualauncherkai.Tools.HttpRequest;
+import com.grampus.hualauncherkai.Tools.Save;
+import com.grampus.hualauncherkai.Tools.Tell;
+import com.grampus.hualauncherkai.Tools.appUtils;
+import com.grampus.hualauncherkai.UI.MainActivity;
+import com.grampus.hualauncherkai.amap.AMapLocations;
+import com.grampus.hualauncherkai.common.VersionInfoBean;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.net.InetAddress;
+import java.util.Calendar;//add by gwb;2020.9.14
+import java.net.ConnectException;
+
+import static com.grampus.hualauncherkai.Data.NetDataHub.NACAddr;
+import static com.grampus.hualauncherkai.Data.NetDataHub.isCtrlBlueTooth;
+import static com.grampus.hualauncherkai.Data.NetDataHub.isCtrlCamera;
+//import static com.grampus.hualauncherkai.Data.NetDataHub.isCtrlInfrared;
+import static com.grampus.hualauncherkai.Data.NetDataHub.isCtrlMonet;
+import static com.grampus.hualauncherkai.Data.NetDataHub.isCtrlUSB;
+import static com.grampus.hualauncherkai.Data.NetDataHub.isCtrlWifi;
+import static com.grampus.hualauncherkai.Data.NetDataHub.whiteApp;
+import static com.grampus.hualauncherkai.Data.WifiHub.wifiThink;
+import static com.grampus.hualauncherkai.Data.WifiHub.closeWifiAp;
+import static com.grampus.hualauncherkai.util.DeviceInfoUtil.getPhoneIp;
+import static com.grampus.hualauncherkai.util.DeviceInfoUtil.getWifiMacAddress;
+import static com.grampus.hualauncherkai.UI.MainActivity.androidv;//add by gwb;2020.9.24
+import static com.grampus.hualauncherkai.UI.MainActivity.g_bUseHuaWeiMDM;
+import static com.grampus.hualauncherkai.UI.MainActivity.szVersionNum;
+
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.os.Environment;
+import android.text.Html;
+import android.text.method.LinkMovementMethod;
+import android.view.Gravity;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.Window;
+import android.view.WindowManager;
+import android.widget.Button;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.util.List;
+/**
+ * Created by Grampus on 2017/5/10.
+ */
+
+
+public class NetCtrlHub
+{
+
+
+
+    private static NetCtrlHub netCtrlHub;
+
+    static public NetCtrlHub get()
+    {
+        return netCtrlHub;
+    }
+
+    private AMapLocations mapLocations = null;
+
+    public String szUploadGPS_Url = "";
+
+    private CLogonSock logonSocketClient = null;
+
+    public static void init(Activity activity, Handler handler)
+    {
+        if (netCtrlHub == null)
+        {
+            netCtrlHub = new NetCtrlHub();
+            netCtrlHub.setActivity(activity);
+            netCtrlHub.setHandler(handler);
+            netCtrlHub.init();
+        }
+    }
+
+    Activity activity;
+    String serviceAd;
+    Handler handler;
+
+
+    private DevicePolicyManager devicePolicyManager = null;
+    private ComponentName componentName = null;
+
+    private String NACStatuc;
+
+    private void init()
+    {
+        serviceAd = Save.getValue(activity, "service_ad", "");
+        timerThink();
+    }
+
+
+    private void setHandler(Handler handler)
+    {
+        this.handler = handler;
+    }
+
+    private void setActivity(Activity activity)
+    {
+        this.activity = activity;
+    }
+
+    public void setServiceAd(String serviceAd)
+    {
+        Save.putValue(activity, "service_ad", serviceAd);
+        this.serviceAd = serviceAd;
+    }
+
+    public String getServiceAd()
+    {
+        return serviceAd;
+    }
+
+
+    JSONArray getWhiteList()
+    {
+        try
+        {
+            String rs = HttpRequest.httpGet("http://" + serviceAd + "/TelSafeDesk.php?Action=whiteapp" + "&Mac=" + SystemDataGet.getMacAddress(activity), null);
+
+//            String rs=HttpRequest.httpGet("http://"+serviceAd+"/TelSafeDesk.php?Action=whiteapp" +//没有数据暂用haha测试
+//                   "&Mac=haha",null);
+            JSONArray jsonArray = new JSONArray(rs);
+            return jsonArray;
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+            Tell.log("TimerCheck出错");
+            return null;
+        }
+    }
+
+    JSONArray getTimerCheck()
+    {
+        try
+        {
+            String rs = HttpRequest.httpGet("http://" + serviceAd + "/TelSafeDesk.php?Action=TimerCheck" +
+                    "&Mac=" + SystemDataGet.getMacAddress(activity), null);
+            JSONArray jsonArray = new JSONArray(rs);
+            return jsonArray;
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+            Tell.log("TimerCheck出错" + e.toString());
+            return null;
+        }
+    }
+
+    public static String NACUrl = "";
+    public static boolean bHaveGetPolicy = false;//add by gwb;
+    /**
+     * 2020.04.10 未来修改
+     * 添加准入功能
+     */
+    private static boolean NACCheckFalg = true;
+
+    public String getNACCheck()
+    {
+        if (NACCheckFalg)
+        {
+            try
+            {
+                Calendar calendar = Calendar.getInstance();
+                //JSONArray NACChecArray = new JSONArray("");
+                //String rs = HttpRequest.httpPost("http://" + NACAddr + "/TimerAction.php?ip=" + DeviceInfoUtil.getPhoneIp() + "&mac=" + getWifiMacAddress(), null, null);
+                NACUrl = "http://" + NACAddr + "/TimerAction.php?ip=" + getPhoneIp() + "&mac=" + getWifiMacAddress();
+
+                NetDataHub.get().addLog("\n准入---getNACCheck---【" + calendar.get(Calendar.YEAR) + "/" + (calendar.get(Calendar.MONTH) + 1) + "/" + calendar.get(Calendar.DAY_OF_MONTH) + " " + calendar.get(Calendar.HOUR_OF_DAY) + ":" + calendar.get(Calendar.MINUTE) + ":" + calendar.get(Calendar.SECOND) + "】---------");
+                NetDataHub.get().addLog("[准入定时执行]:" + NACUrl + "\n\n");
+
+                String rs = HttpRequest.httpPost(NACUrl, null, null);
+
+                NACCheckFalg = false;
+                return rs;
+            }
+            catch (Exception e)
+            {
+                e.printStackTrace();
+                Tell.log("TimerCheck出错" + e.toString());
+                return "";
+            }
+        }
+        else
+        {
+            NACCheckFalg = true;
+            return "";
+        }
+    }
+    public String getServerApkVersion()//获取服务器上APK版本号  add by gwb;
+    {
+        String szVersion = "";
+
+        try
+        {
+            String szUrl = "http://" + serviceAd + "/TelSafeDesk.php?Action=getServerApkVersion" + "&Mac=" + SystemDataGet.getMacAddress(activity);
+            //String rs = HttpRequest.httpGet("http://" + serviceAd + "/TelSafeDesk.php?Action=getServerApkVersion" + "&Mac=" + SystemDataGet.getMacAddress(activity), null);
+            String rs = HttpRequest.httpGet(szUrl, null);
+            JSONArray jsonArray = new JSONArray(rs);
+
+            for (int i = 0; i < jsonArray.length(); i++)
+            {
+                JSONObject jsonObject = jsonArray.getJSONObject(i);
+                String name = jsonObject.getString("Name");
+                if (name.equals("SafeDeskApkVersion"))
+                {
+                    if (jsonObject.getString("Value") != null)
+                    {
+                        szVersion = jsonObject.getString("Value");
+                        break;
+                    }
+
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+        return szVersion;
+    }
+    /**
+     * 获取准入IP地址
+     * 若成功获取则返回true
+     * 若不存在准入IP地址，则返回false
+     *
+     * @return
+     */
+    public boolean getNACAddr()
+    {
+        try
+        {
+            String rs = HttpRequest.httpGet("http://" + serviceAd + "/TelSafeDesk.php?Action=getconfiglist" + "&Mac=" + SystemDataGet.getMacAddress(activity), null);
+            JSONArray jsonArray = new JSONArray(rs);
+
+            for (int i = 0; i < jsonArray.length(); i++)
+            {
+                JSONObject jsonObject = jsonArray.getJSONObject(i);
+                String name = jsonObject.getString("Name");
+                if (name.equals("ZRIPSet"))
+                {
+                    if (jsonObject.getString("Value") != null)
+                    {
+                        NetDataHub.get().setNACAddr(jsonObject.getString("Value"));
+
+                        handler.sendEmptyMessage(1);
+                        //NetDataHub.get().saveWifiListAndWhiteApp();
+
+                        return true;
+                    }
+                    else
+                    {
+                        NetDataHub.get().setNACAddr("");
+
+                        handler.sendEmptyMessage(1);
+                        //NetDataHub.get().saveWifiListAndWhiteApp();
+
+                        return false;
+                    }
+                }
+            }
+            return false;
+        }
+        catch (Exception e)
+        {
+            return false;
+        }
+    }
+
+    /**
+     * 2020.04.09 未来修改
+     * 不仅获取wifi和app白名单的状态，也能获取红外、蓝牙、相机和USB设备的状态
+     * 返回值为JSONArray类型的字符串
+     *
+     * @return
+     */
+    String getIsCtrlWifiAndApp()
+    {
+        try
+        {
+            String rs = HttpRequest.httpGet("http://" + serviceAd + "/TelSafeDesk.php?Action=getconfiglist" + "&Mac=" + SystemDataGet.getMacAddress(activity), null);
+            JSONArray jsonArray = new JSONArray(rs);
+
+            for (int i = 0; i < jsonArray.length(); i++)
+            {
+                JSONObject jsonObject = jsonArray.getJSONObject(i);
+                String name = jsonObject.getString("Name");
+                if (name.equals("wififilterOn"))
+                {
+                    boolean tmp;
+
+                    if (jsonObject.getString("Value").equals("0"))
+                    {
+                        tmp = NetDataHub.get().setCtrlWifi(false);
+                    }
+                    else
+                    {
+                        tmp = NetDataHub.get().setCtrlWifi(true);
+                    }
+                    if (tmp)
+                    {
+                        //NetDataHub.get().saveWifiListAndWhiteApp();
+                    }
+                }
+
+                else if (name.equals("appfilteron"))
+                {
+                    boolean tmp;
+                    if (jsonObject.getString("Value").equals("0"))
+                    {
+                        tmp = NetDataHub.get().setCtrlApp(false);
+                    }
+                    else
+                    {
+                        tmp = NetDataHub.get().setCtrlApp(true);
+                    }
+                    if (tmp)
+                    {
+                        //handler.sendEmptyMessage(1);
+                        //NetDataHub.get().saveWifiListAndWhiteApp();
+                    }
+                }
+
+                else if (name.equals("ForbitLYon"))
+                {
+                    boolean tmp;
+                    if (jsonObject.getString("Value").equals("0"))
+                    {
+                        tmp = NetDataHub.get().setCtrlBlueTooth(false);
+                    }
+                    else
+                    {
+                        tmp = NetDataHub.get().setCtrlBlueTooth(true);
+                    }
+                    if (tmp)
+                    {
+                        //handler.sendEmptyMessage(1);
+                        //NetDataHub.get().saveWifiListAndWhiteApp();
+                    }
+                }
+
+//                else if (name.equals("ForbitHWon"))
+//                {
+//                    boolean tmp;
+//                    if (jsonObject.getString("Value").equals("0"))
+//                    {
+//                        tmp = NetDataHub.get().setCtrlInfrared(false);
+//                    }
+//                    else
+//                    {
+//                        tmp = NetDataHub.get().setCtrlInfrared(true);
+//                    }
+//                    if (tmp)
+//                    {
+//                        handler.sendEmptyMessage(1);
+//                        NetDataHub.get().saveWifiListAndWhiteApp();
+//                    }
+//                }
+
+                else if (name.equals("ForbitNeton"))
+                {
+                    boolean tmp;
+                    if (jsonObject.getString("Value").equals("0"))
+                    {
+                        tmp = NetDataHub.get().setCtrlMonet(false);
+                    }
+                    else
+                    {
+                        tmp = NetDataHub.get().setCtrlMonet(true);
+                    }
+                    if (tmp)
+                    {
+                        //handler.sendEmptyMessage(1);
+                        //NetDataHub.get().saveWifiListAndWhiteApp();
+                    }
+                }
+
+                else if (name.equals("ForbitUSBon"))
+                {
+                    boolean tmp;
+                    if (jsonObject.getString("Value").equals("0"))
+                    {
+                        tmp = NetDataHub.get().setCtrlUSB(false);
+                    }
+                    else
+                    {
+                        tmp = NetDataHub.get().setCtrlUSB(true);
+                    }
+                    if (tmp)
+                    {
+                        //handler.sendEmptyMessage(1);
+                        //NetDataHub.get().saveWifiListAndWhiteApp();
+                    }
+                }
+                else if (name.equals("ForbitCAMon"))
+                {
+                    boolean tmp;
+                    if (jsonObject.getString("Value").equals("0"))
+                    {
+                        tmp = NetDataHub.get().setCtrlCamera(false);
+                    }
+                    else
+                    {
+                        tmp = NetDataHub.get().setCtrlCamera(true);
+                    }
+                    if (tmp)
+                    {
+                        //handler.sendEmptyMessage(1);
+                        //NetDataHub.get().saveWifiListAndWhiteApp();
+                    }
+                }
+                else if (name.equals("UseGpsPos"))
+                {
+                    boolean tmp;
+                    if (jsonObject.getString("Value").equals("0"))
+                    {
+                        NetDataHub.get().setUseGpsPos(false);
+                    }
+                    else
+                    {
+                        NetDataHub.get().setUseGpsPos(true);
+                    }
+                }
+                else if (name.equals("UseAppStore"))
+                {
+                    boolean tmp;
+                    if (jsonObject.getString("Value").equals("0"))
+                    {
+                        NetDataHub.get().isShowAppStore = false;
+                    }
+                    else
+                    {
+                        NetDataHub.get().isShowAppStore = true;
+                    }
+                }
+                else if (name.equals("ForbitAP"))//add by gwb;2021.2.20  禁用热点。
+                {
+                    boolean tmp;
+                    if (jsonObject.getString("Value").equals("1"))
+                    {
+                        NetDataHub.get().setForbitAP(true);
+                    }
+                    else
+                    {
+                        NetDataHub.get().setForbitAP(false);
+                    }
+                }
+                else if (name.equals("ZRIPSet"))
+                {
+                    boolean tmp;
+                    if (jsonObject.getString("Value") != null)
+                    {
+                        NetDataHub.get().setNACAddr(jsonObject.getString("Value"));
+
+                        //handler.sendEmptyMessage(1);
+                        //NetDataHub.get().saveWifiListAndWhiteApp();del by gwb;
+                    }
+                    else
+                    {
+                        NetDataHub.get().setNACAddr("");
+
+                        //handler.sendEmptyMessage(1);
+                        //NetDataHub.get().saveWifiListAndWhiteApp();del by gwb;
+                    }
+                }
+            }
+            return "1";
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+            Tell.log("TimerCheck出错" + e.toString());
+            return null;
+        }
+
+    }
+
+    public String getBackGroundPic()
+    {
+        try
+        {
+            String rs = HttpRequest.httpGet("http://" + serviceAd + "/TelSafeDesk.php?Action=backgroundpic" +
+                    "&Mac=" + SystemDataGet.getMacAddress(activity), null);
+
+            JSONArray jsonArray = new JSONArray(rs);
+            JSONObject jsonObject = jsonArray.getJSONObject(0);
+            return jsonObject.getString("Name3");
+
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+            Tell.log("getbackgroundpic" + e.toString());
+            return null;
+        }
+
+
+    }
+
+
+    public String upDataSucceful()
+    {
+        try
+        {
+            String rs = HttpRequest.httpGet("http://" + serviceAd + "/TelSafeDesk.php?Action=PolicyChangeOK" +
+                    "&Mac=" + SystemDataGet.getMacAddress(activity), null);
+
+            return rs;
+
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+            Tell.log("PolicyChangeOK" + e.toString());
+            return null;
+        }
+    }
+
+
+    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR1)
+    public String upHardlist()
+    {
+        try
+        {
+            String rs = HttpRequest.httpPost("http://" + serviceAd + "/TelSafeDesk.php?Action=hardlist" +
+                    "&Mac=" + SystemDataGet.getMacAddress(activity), null, NetDataHub.get().getHardList().toString());
+            return rs;
+
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+            Tell.log("hardlist出错" + e.toString());
+            return null;
+        }
+    }
+
+    public String upSoftlist()
+    {
+        try
+        {
+            String rs = HttpRequest.httpPost("http://" + serviceAd + "/TelSafeDesk.php?Action=softlist" +
+                    "&Mac=" + SystemDataGet.getMacAddress(activity), null, NetDataHub.get().getAppList().toString());
+            return rs;
+
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+            Tell.log("hardlist出错" + e.toString());
+            return null;
+        }
+    }
+
+
+    JSONArray getWifiList()
+    {
+        try
+        {
+            String rs = HttpRequest.httpGet("http://" + serviceAd + "/TelSafeDesk.php?Action=wifilist" +
+                    "&Mac=" + SystemDataGet.getMacAddress(activity), null);
+            JSONArray jsonArray = new JSONArray(rs);
+            return jsonArray;
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+            Tell.log("getWifiList出错" + e.toString());
+            return null;
+        }
+    }
+    /**
+     * 获取系统开机时间(精确到秒)
+     *
+     * @return
+     */
+    public static long getBootTime() {
+        long ut = SystemClock.elapsedRealtime() / 1000;
+        if (ut == 0) {
+            ut = 1;
+        }
+        return ut;
+    }
+    public boolean GetServerPolicy()
+    {
+        try
+        {
+
+        /* del by gwb;2020.9.30  现在先不用了。
+        String background = getBackGroundPic();
+        if (background != null)
+        {
+            if (NetDataHub.get().getBackgroundpic().equals(background))
+            {
+                Tell.log("背景图片重复了，不更新");
+            }
+            else
+            {
+                try
+                {
+                    Tell.log("背景图片下载开始");
+                    DownFile.downLoadFromUrl(background, "/mnt/sdcard/bg.jpg");
+                    Tell.log("背景图片下载成功");
+
+                    Bitmap bitmap = BitmapFactory.decodeFile("/mnt/sdcard/bg.jpg");
+                    activity.setWallpaper(bitmap);
+                    NetDataHub.get().setBackgroundpic(background);
+
+                }
+                catch (Exception e)
+                {
+                    Tell.log("背景图片下载失败。。" + e.toString());
+                }
+            }
+        }
+        else
+        {
+            Tell.log("背景图片下载失败");
+        }
+         */
+
+            //是否控制wifi和App
+            String isCtrlWifiAndApp = getIsCtrlWifiAndApp();//一定要先得一下开关，再得具体内容。
+            if (isCtrlWifiAndApp != null)
+            {
+                //app白名单
+                JSONArray whiteList = getWhiteList();
+                if (whiteList != null)
+                {
+                    Tell.log("心跳：获取白名单成功");
+                    NetDataHub.get().setWhiteApp(whiteList);
+                    //handler.sendEmptyMessage(1);
+                }
+                //wifi白名单列表
+                JSONArray wifiList = getWifiList();
+                if (wifiList != null)
+                {
+                    NetDataHub.get().setWifiList(wifiList);
+                }
+                NetDataHub.get().saveWifiListAndWhiteApp();//add by gwb;2020.10.15  一起保存。
+
+                handler.sendEmptyMessage(1);
+            }
+            else {
+                NetDataHub.get().addLog("GetServerPolicy----调用getIsCtrlWifiAndApp获取策略返回异常!");
+                return false;//add by gwb;2020.9.15 此时可能与服务器不通。
+            }
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+            //Tell.log("GetServerPolicy catch--!!!!!!!! Error:" + e.toString());//del by gwb;2020.9.15
+            //----add by gwb;2020.9.15
+            NetDataHub.get().addLog("GetServerPolicy------执行catch 异常!");
+            return false;
+            //----end.
+        }
+        return true;
+    }
+
+    public String CheckUpdateVersion(boolean bShowMsg){
+        String szVersion = "";
+        try{
+            szVersion = getServerApkVersion();
+            if(szVersion.length()<1 ){
+                if(bShowMsg) {
+                    Message message = new Message();
+                    message.what = 6;
+                    NetCtrlHub.get().handler.sendMessage(message);
+                    //Toast.makeText(activity, "服务器没有升级包！", Toast.LENGTH_SHORT).show();
+                }
+                return "";
+            }
+            if( szVersion.compareToIgnoreCase(szVersionNum) != 0)
+            {
+                NetDataHub.get().addLog("CheckUpdateVersion---当前服务器上版本与本地不同，需要升级："+szVersion);
+                if(!bShowMsg) {
+                    Message message = new Message();
+                    message.what = 4;
+                    //message.obj = e.toString();
+                    message.obj = szVersion;
+                    NetCtrlHub.get().handler.sendMessage(message);
+                }
+
+            }
+            else
+            {
+                NetDataHub.get().addLog("CheckUpdateVersion---当前已是最新版本:"+szVersion + "，无需升级.");
+                if(bShowMsg){
+                    Message message = new Message();
+                    message.what = 5;
+                    message.obj = szVersion;
+                    NetCtrlHub.get().handler.sendMessage(message);
+                }
+                szVersion = "";
+            }
+        }
+        catch(Exception e){
+            e.printStackTrace();
+        }
+
+        return szVersion;
+    }
+    public void ytStopLocation(){
+        try {
+            // 停止定位
+            if (mapLocations != null) {
+                mapLocations.stopLocation();
+            }
+        }catch(Exception e){
+            e.printStackTrace();
+        }
+    }
+    public void ytStartLocation(){
+        try {
+            // 停止定位
+            if (mapLocations != null) {
+                mapLocations.startLocation();
+            }
+        }
+        catch(Exception e){
+            e.printStackTrace();
+        }
+    }
+    public void ytInitLocationFun()
+    {
+        try {
+            if (!serviceAd.equals("") && mapLocations == null) {
+                mapLocations = new AMapLocations(activity, serviceAd);
+                mapLocations.initLocation();
+                mapLocations.startLocation();
+            }
+        }
+        catch(Exception e){
+            e.printStackTrace();
+        }
+    }
+    private void CheckEquipManage()
+    {
+        try {
+        //设置成功，之后可能要改成不每次都更新
+        devicePolicyManager = (DevicePolicyManager) activity.getSystemService(Context.DEVICE_POLICY_SERVICE);
+        ComponentName componentName = new ComponentName(activity, DeviceReceiver.class);
+
+        if (devicePolicyManager.isAdminActive(componentName)) {
+
+            if (isCtrlUSB) {
+                NetDataHub.get().addLog("CheckEquipManage----开始USB禁用.");
+                devicePolicyManager.addUserRestriction(componentName, UserManager.DISALLOW_USB_FILE_TRANSFER);
+            }
+             else {
+                NetDataHub.get().addLog("CheckEquipManage----取消USB禁用!!");
+                devicePolicyManager.clearUserRestriction(componentName, UserManager.DISALLOW_USB_FILE_TRANSFER);
+            }
+        }
+        else
+        {
+            NetDataHub.get().addLog("CheckEquipManage----没有设备管理权限!");
+        }
+        } catch (SecurityException e) {
+            NetDataHub.get().addLog("CheckEquipManage----catch error!!");
+        }
+    }
+    private void CheckCenterServOK()
+    {
+        String szServerIP = "";
+        try {
+
+            String szUrlIP = NetCtrlHub.get().getServiceAd();
+            //szUrlIP = "192.168.1.51";
+            if(szUrlIP.indexOf(":")>0)
+                szServerIP = szUrlIP.substring(0, szUrlIP.indexOf(":"));
+            else
+                szServerIP = szUrlIP;
+
+            if (!szServerIP.equals("")) {
+
+                if(logonSocketClient==null) {
+                    logonSocketClient = new CLogonSock(InetAddress.getByName(szServerIP), 6671);
+                    logonSocketClient.start();
+                }
+                else
+                {
+                    logonSocketClient.SendTimerCmdToServ();
+                }
+            }
+            else
+                NetDataHub.get().addLog("CheckCenterServOK------中心服务器IP为空！！");
+        }
+        catch(Exception e){
+            NetDataHub.get().addLog("CheckCenterServOK------catch Error！！szServerIP:"+szServerIP);
+            e.printStackTrace();
+        }
+    }
+
+    private void CheckGPSPositon()
+    {
+        try {
+            if (NetDataHub.get().m_bUseGpsPos) {
+            //if (true) {
+                NetCtrlHub.get().ytInitLocationFun();
+                NetCtrlHub.get().ytStartLocation();
+                if (szUploadGPS_Url.length() > 0) {
+                    String rs = HttpRequest.httpGet(szUploadGPS_Url, null);//必须放到线程中去执行才会提交成功，新的android这样。
+                    szUploadGPS_Url = "";
+                }
+            } else {
+                NetCtrlHub.get().ytStopLocation();
+            }
+        }
+        catch(Exception e){
+            e.printStackTrace();
+        }
+    }
+    public boolean TimerCheckMain(int k)
+    {
+       // Tell.log("TimerCheckMain----->心跳开始");
+        //--------add by gwb;2020.9.14
+        Calendar calendar = Calendar.getInstance();
+        NetDataHub.get().addLog("\nTimerCheckMain---sys:" + android.os.Build.VERSION.RELEASE + "------心跳开始--【" + calendar.get(Calendar.YEAR) + "/" + (calendar.get(Calendar.MONTH) + 1) + "/" + calendar.get(Calendar.DAY_OF_MONTH) + " " + calendar.get(Calendar.HOUR_OF_DAY) + ":" + calendar.get(Calendar.MINUTE) + ":" + calendar.get(Calendar.SECOND) + "】---------");
+        //------------------------------------------
+
+        //if (!NetCtrlHub.get().getServiceAd().equals("") && 1==0)
+        if (!NetCtrlHub.get().getServiceAd().equals("") )
+        {
+            Tell.log("心跳：地址存在");
+
+            CheckCenterServOK();//add by gwb;2021.9.14
+            try
+            {
+                JSONArray timeRs = null;
+                try
+                {
+                    long bootTime1 = getBootTime(); // 获取系统开机时间(精确到秒)
+                    if(bootTime1>180){
+                        NetDataHub.get().bOpenMachineRightNowNoWifiControl = false;
+                    }
+
+                    timeRs = getTimerCheck();
+                    if (timeRs == null)
+                    {
+                        NetDataHub.get().addLog("TimerCheckMain----getTimerCheck 失败，直接返回.");
+
+                        /*  del by gwb;2021.2.8  现在不处理了，还得处理恢复控制。直接控死。
+                        if(bootTime1<120){
+                            NetDataHub.get().bOpenMachineRightNowNoWifiControl = true;
+                            NetDataHub.get().addLog("TimerCheckMain---刚开机，网也不通，取消禁用wifi---bootTime1秒:"+bootTime1);
+                            if(g_bUseHuaWeiMDM)
+                            {
+                                NetDataHub.get().clealHuaWeiWifiControl();
+                            }
+                        }
+                        */
+                        CheckGPSPositon();//add by gwb;2020.12.9 当没有wifi网，与服务器不通时也要检查GPS位置，但是也提交不了啊？？？？？？？？
+                        return false;
+                    }
+
+                    //------add by gwb;2020.9.14  先这样处理，这里最好是通过MD5判断策略有没有变化。
+                    if(k == 1 || k%120 == 0 || NetCtrlHub.bHaveGetPolicy==false) {
+                        Tell.log("TimerCheckMain-----强制获取策略。");
+                        if(GetServerPolicy()) {
+
+
+                            NetCtrlHub.get().CheckUpdateVersion(false);//检查升有版本
+
+                            NetCtrlHub.bHaveGetPolicy=true;
+                            NetDataHub.get().addLog("TimerCheckMain----第一次提交资产信息---begin.!");
+                            NetCtrlHub.get().upHardlist();
+                            NetCtrlHub.get().upSoftlist();
+                            NetDataHub.get().addLog("TimerCheckMain----第一次提交资产信息---end.!");
+                        }
+                        else
+                        {
+                            NetDataHub.get().addLog("TimerCheckMain----GetServerPolicy 失败，直接返回.");
+                            return false;
+                        }
+                    }
+
+                    if(k >1)//在1的时候处理，因为太快的话NetDataHub.get()还没有初始化。
+                    {
+                        if(NetDataHub.get().m_ManagerLogon) {
+                            NetDataHub.get().m_ManagerLogon = false;
+
+                            NetCtrlHub.get().CheckUpdateVersion(false);//检查升有版本
+
+                            NetDataHub.get().addLog("TimerCheckMain----登陆管理员设置----强制上传资产---begin.!");
+                            NetCtrlHub.get().upHardlist();
+                            NetCtrlHub.get().upSoftlist();
+                            NetDataHub.get().addLog("TimerCheckMain---登陆管理员设置---强制上传资产---end.!");
+                        }
+
+                    }
+                    //-------------End.
+                }
+                catch (Exception e)
+                {
+
+                }
+                if (timeRs != null)
+                {
+                    Tell.log("TimerCheckMain--------心跳：获取心跳信息成功");
+                    for (int i = 0; i < timeRs.length(); i++)
+                    {
+                        JSONObject jsonObject = timeRs.getJSONObject(i);
+                        String name = jsonObject.getString("Name");
+
+                        if (name.equals("PolicyChange"))
+                        {
+                            String value = jsonObject.getString("Value");
+                            if (value.equals("1"))
+                            {
+                                NetDataHub.get().setPolicyChange("1");
+                                /*
+                                GetServerPolicy();
+                                //策略更新成功
+                                upDataSucceful();
+                                */
+                                //---add by gwb;2020.9.15 策略更新成功了，就更新成功状态。
+                                if(GetServerPolicy())
+                                    upDataSucceful();
+                                //----end.
+                            }
+                        }
+                        else
+                        {
+                            //其他事项
+                            NetDataHub.get().setPolicyChange("0");
+
+                            //禁用wifi
+                            //getIsCtrlWifiAndApp();  del by gwb;2020.9.15  策略这边理论上不需要再拿了。
+                        }
+                    }
+                }
+                //准入
+                //准入地址不为空
+                if (NACAddr != null && !NACAddr.equals("") && !NACAddr.equals("0") && NACAddr.length() > 3
+                && !NACAddr.equals("0.0.0.0") && !NACAddr.equals("255.255.255.255"))
+                {
+                    NACStatuc = getNACCheck();
+                }
+
+                WifiHub.wifiThink(activity);//add by gwb;2020.9.22
+
+                WifiHub.closeWifiAp(activity);//add by gwb;2021.2.20  禁用热点。
+
+                //------------add by gwb;2020.12.2 定位处理----------------
+                CheckGPSPositon();
+                //-------------------------------------
+
+                CheckEquipManage();//add by gwb;2021.7.15
+                //app白名单限制
+                //appUtils au2 = new appUtils(activity);  //del by gwb;2020.9.22
+                //au2.appControl();
+
+                //是否控制wifi和App
+                //String isCtrlWifiAndApp = getIsCtrlWifiAndApp();  del by gwb;2020.9.15  这边策略理论上就不需要再获取一次了。
+                //if (isCtrlWifiAndApp != null)
+                if(androidv >= 222){///add by gwb;2020.9.24  发现在安卓4的版本上面，调用禁用蓝牙这些会程序报错。 先不用了。
+                //if(1==1){
+                    //app白名单限制
+                    appUtils au = new appUtils(activity); //add by gwb;加到下面来
+                    au.appControl();
+
+                    //设置成功，之后可能要改成不每次都更新
+                    devicePolicyManager = (DevicePolicyManager) activity.getSystemService(Context.DEVICE_POLICY_SERVICE);
+                    ComponentName componentName = new ComponentName(activity, DeviceReceiver.class);
+
+                    if (devicePolicyManager.isAdminActive(componentName)) {
+                        NetDataHub.get().addLog("TimerCheckMain-----已获得设备管理权限!");//add by gwb;2020.9.15
+
+                        /* del by gwb;2020.9.15  先不用了。
+                        //移动网络
+                        if (isCtrlMonet)
+                        {
+                            devicePolicyManager.addUserRestriction(componentName, UserManager.DISALLOW_CONFIG_MOBILE_NETWORKS);
+                        }
+                        else
+                        {
+                            try
+                            {
+                                devicePolicyManager.clearUserRestriction(componentName, UserManager.DISALLOW_CONFIG_MOBILE_NETWORKS);
+                            }
+                            catch (SecurityException e)
+                            {
+
+                            }
+                        }
+
+                         */
+
+/*del by gwb;2020.9.27   这里面就不处理了，要不然太重复了。
+                        //wifi
+                        if (isCtrlWifi)
+                        {
+                            wifiThink(activity);
+//                            WifiManager wifiManager = (WifiManager) activity.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+//                            WifiInfo wifiInfo = wifiManager.getConnectionInfo();
+//
+//                            Tell.log("wifi 需要进行wifi操作白名单");
+//                            if (NetDataHub.get().isInWifiList(wifiInfo.getSSID(), wifiInfo.getBSSID(), activity))
+//                            {
+//                                Tell.log("wifi 在白名单内，不用改变");
+//                            }
+//                            else
+//                            {
+//                                int netId = wifiInfo.getNetworkId();
+//                                wifiManager.disableNetwork(netId);
+//                            }
+                        }
+                        else
+                        {
+
+                        }
+
+ */
+
+                        //蓝牙
+                        try {
+                            if (isCtrlBlueTooth) {
+                                devicePolicyManager.addUserRestriction(componentName, UserManager.DISALLOW_BLUETOOTH);
+                                Tell.log("关闭蓝牙");
+                            } else {
+                                devicePolicyManager.clearUserRestriction(componentName, UserManager.DISALLOW_BLUETOOTH);
+                                Tell.log("开启蓝牙");
+                            }
+                        }
+                        catch(Exception e) {
+                            e.printStackTrace();
+                        }
+
+                        //摄像头
+                        try {
+                            if (isCtrlCamera) {
+                                devicePolicyManager.setCameraDisabled(componentName, true);
+                                Tell.log("关闭相机");
+                            } else {
+
+                                devicePolicyManager.setCameraDisabled(componentName, false);
+                                Tell.log("开启相机");
+                            }
+                        }
+                        catch(Exception e) {
+                            e.printStackTrace();
+                        }
+
+                        /* del by gwb;2020.9.15
+                        //USB设备
+                        if (isCtrlUSB)
+                        {
+                            devicePolicyManager.addUserRestriction(componentName, UserManager.DISALLOW_USB_FILE_TRANSFER);
+                        }
+                        else
+                        {
+                            try
+                            {
+                                devicePolicyManager.clearUserRestriction(componentName, UserManager.DISALLOW_USB_FILE_TRANSFER);
+                            }
+                            catch (SecurityException e)
+                            {
+
+                            }
+                        }*/
+                    }
+                    else
+                    {
+                        //Toast.makeText(activity, "您尚未取得设备管理器权限，部分功能可能无法正常使用", Toast.LENGTH_SHORT).show();
+                        NetDataHub.get().addLog("您尚未取得设备管理器权限!");//add by gwb;2020.9.15
+                    }
+                }
+
+                NetDataHub.get().addAllLog();//策略加入Log
+                return true;
+            }
+            catch (Exception e)
+            {
+                e.printStackTrace();
+                return false;
+            }
+        }
+        return false;
+
+    }
+
+
+
+    public void timerThink()
+    {
+        new Thread(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                int i = 0;
+
+                while (true)
+                {
+                    i++;//add by gwb;2020.9.14 控制第一次必须从服务器获取策略，因为如果手机第一次安装，管理机不设置是得不到策略的。
+
+                    TimerCheckMain(i);
+
+                    if(i == 2*60*3)//add by gwb;3小时一个轮回。
+                        i = 0;
+
+                    try
+                    {
+                        Thread.sleep(30000);
+                    }
+                    catch (InterruptedException e)
+                    {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }).start();
+
+
+    }
+
+
+}

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory
+        android:key="container1"
+        android:title="管理设置">
+        <SwitchPreference
+            android:defaultValue="true"
+            android:icon="@drawable/wifi_manage"
+            android:key="isEnabled"
+            android:selectable="false"
+            android:title="未启用">
+
+        </SwitchPreference>
+
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:key="container2"
+        android:title="WIFI白名单列表" >
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="app_width">90dp</dimen>
+    <dimen name="app_height">90dp</dimen>
+
+    <dimen name="top_menu_height">50dp</dimen>
+    <dimen name="top_menu_wight">70dp</dimen>
+    <dimen name="top_left_text_size">20sp</dimen>
+    <dimen name="top_title_size">22sp</dimen>
+    <dimen name="top_right_text_size">20sp</dimen>
+</resources>

@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context="com.grampus.hualauncherkai.UI.Setting">
+
+
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#fff"
+        android:layout_centerHorizontal="true"
+        android:layout_centerVertical="true">
+
+
+
+        <TextView
+            android:id="@+id/textView2"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/blue"
+            android:textColor="#fff"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp"
+            android:gravity="center"
+            android:text="管理员功能"
+            android:textSize="20sp" />
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="100dp"
+            android:layout_centerHorizontal="true"
+            android:layout_above="@+id/aaaa"
+            android:layout_below="@+id/textView2">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_margin="20dp"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" >
+
+                <TextView
+                    android:id="@+id/log_text"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+        </ScrollView>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:id="@+id/aaaa"
+            android:orientation="horizontal"
+            android:layout_alignParentBottom="true"
+            android:layout_centerHorizontal="true">
+
+            <Button
+                android:id="@+id/reflash_log"
+                android:layout_width="wrap_content"
+                android:layout_weight="1"
+                android:background="@color/blue"
+                android:textColor="#fff"
+                android:layout_height="wrap_content"
+                android:layout_above="@+id/delete_launcher"
+                android:layout_alignLeft="@+id/delete_launcher"
+                android:text="重新抓取Log" />
+
+            <Button
+                android:id="@+id/delete_launcher"
+                android:layout_width="wrap_content"
+                android:layout_weight="1"
+                android:background="@color/zise"
+                android:layout_height="wrap_content"
+                android:textColor="#fff"
+
+                android:layout_alignParentBottom="true"
+                android:layout_centerHorizontal="true"
+                android:text="卸载安全桌面" />
+
+            <Button
+                android:id="@+id/exit_launcher"
+                android:layout_width="wrap_content"
+                android:layout_weight="1"
+                android:background="@color/text_color_black_deep"
+                android:layout_height="wrap_content"
+                android:textColor="#fff"
+
+                android:layout_alignParentBottom="true"
+                android:layout_centerHorizontal="true"
+                android:text="退出安全桌面" />
+            <Button
+                android:id="@+id/close_setting"
+                android:layout_width="wrap_content"
+                android:layout_weight="1"
+                android:background="@color/colorAccent"
+                android:layout_height="wrap_content"
+                android:textColor="#fff"
+                android:layout_alignParentBottom="true"
+                android:layout_centerHorizontal="true"
+                android:text="关闭设置窗口" />
+        </LinearLayout>
+
+
+    </RelativeLayout>
+
+</RelativeLayout>

@@ -1,0 +1,748 @@
+package com.grampus.hualauncherkai.service;
+
+import android.accessibilityservice.AccessibilityService;
+import android.accessibilityservice.GestureDescription;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.content.Context;
+import android.content.Intent;
+import android.graphics.BitmapFactory;
+import android.graphics.Path;
+import android.os.Build;
+import android.util.Log;
+import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityNodeInfo;
+
+import androidx.annotation.RequiresApi;
+import androidx.core.app.NotificationCompat;
+
+import com.grampus.hualauncherkai.Data.AndroidParameter;
+import com.grampus.hualauncherkai.Data.AndroidPolicy;
+import com.grampus.hualauncherkai.Data.NetDataHub;
+import com.grampus.hualauncherkai.FloatWindow.EMMFloatWindowService;
+import com.grampus.hualauncherkai.Receiver.WifiHub;
+import com.grampus.hualauncherkai.Tools.Save;
+import com.grampus.hualauncherkai.UI.MainActivity;
+
+import java.util.List;
+
+import static com.grampus.hualauncherkai.R.mipmap.ic_launcher;
+import static com.grampus.hualauncherkai.Receiver.WifiHub.g_isWhiteWifi;
+import static com.grampus.hualauncherkai.UI.MainActivity.g_bUseHuaWeiMDM;
+import static com.grampus.hualauncherkai.UI.MainActivity.g_isApplyForFloat;
+
+/**
+ * 这个服务属于系统级别辅助服务 需要在设置里去手动开启 和平常app里
+ * 经常使用的service 是有很大不同的 非常特殊
+ * add by fsy 2021.8.8
+ */
+@RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
+public class EMMAccessibilityService extends AccessibilityService {
+    public EMMAccessibilityService() {
+    }
+
+    private static EMMAccessibilityService mService;
+
+    public static synchronized EMMAccessibilityService getInstance(){
+        if(mService == null){
+            mService = new EMMAccessibilityService();
+        }
+        return mService;
+    }
+
+    private final String TAG = "EMMA11yService";
+    private void setForeground() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                NotificationChannel channel = new NotificationChannel("Foreground_Service",
+                        "Foreground_Service", NotificationManager.IMPORTANCE_LOW);
+                NotificationManager manager = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
+                if (manager == null) {
+                    return;
+                }
+                manager.createNotificationChannel(channel);
+                Notification notification =
+                        new NotificationCompat.Builder(this, "Foreground_Service")
+                                .setContentTitle("阳途安卓辅助功能")
+                                .setContentText("正在运行中")
+                                .setWhen(System.currentTimeMillis())
+                                .setSmallIcon(ic_launcher)
+                                .setLargeIcon(BitmapFactory.decodeResource(getResources(), ic_launcher))
+                                .build();
+                startForeground(11, notification);
+            }
+        }catch (Exception e) {
+            Log.e(TAG, "setForeground------error:"+e.toString() );
+        }
+    }
+
+    private void readNACAndConnect() {
+
+        //测试 在服务中 读取文件中的策略      //测试无问题
+        Object NACAddrObj = Save.readFile(this, "NACAddr");  //add by fsy 2021.12.20
+        if(NACAddrObj != null)
+        {
+            AndroidPolicy.NACAddr0 = (String) NACAddrObj;
+            Log.w(TAG, "==NACAddr0 = "+AndroidPolicy.NACAddr0);
+        }
+
+/*
+        new Thread(new Runnable() { // 匿名类的Runnable接口
+            @Override
+            public void run() {
+                String rs = AndroidPolicy.getNACCheck();
+                if(NetDataHub.get()!=null)
+                    NetDataHub.get().addLog("EMMA11yService-----准入访问返回结果:【"+rs+"】");
+            }
+        }).start();
+*/
+        Object resultData = Save.readFile(this, "resultData");  //add by fsy 2021.12.20
+        if(resultData != null)
+        {
+            AndroidParameter.resultData = (Intent) resultData;
+            Log.w(TAG, "==resultData = "+AndroidParameter.resultData);
+        }
+
+    }
+    public void openMainActivity () {
+
+        if(AndroidParameter.screenLock)
+        {
+            Log.i(TAG, "锁屏时跳转不开启");
+            return;
+        }
+
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);//FLAG_ACTIVITY_NEW_TASK如果栈中已存在改activity，启动不了
+//        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK|Intent.FLAG_ACTIVITY_NEW_TASK);
+        Log.w(TAG,"----openMainActivity----");
+        if(NetDataHub.get()!=null)
+            NetDataHub.get().addLog("EMMLogonSock---收到屏幕监视消息444open");
+        startActivity(intent);
+    }
+
+    /**
+     * AccessibilityService 这个服务可以关联很多属性，这些属性 一般可以通过代码在这个方法里进行设置，
+     * 如果很复杂比如需要初始化广播之类的工作 都可以在这个方法里写。
+     */
+    @Override
+    protected void onServiceConnected() {
+        super.onServiceConnected();
+        Log.w(TAG, "MyAccessubility---onServiceConnected---- " );
+        setForeground();
+        mService = this;
+        openMainActivity();
+
+        readNACAndConnect();  //显注掉，几次辅助服务起来后面就无效了，不知是否这里原因
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        Log.w(TAG, "MyAccessubility---onStartCommand---- " );
+        return super.onStartCommand(intent, flags, startId);
+    }
+
+    public static boolean isStart() {
+        return mService != null;
+    }
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        Log.i(TAG, "MyAccessubility---onCreate--");
+    }
+    @Override
+    public void onInterrupt() {
+        Log.i(TAG, "MyAccessubility---onInterrupt--" );
+    }
+
+    @Override
+    public boolean onUnbind(Intent intent) {
+        Log.w(TAG, "MyAccessibilityService--------onUnbind -- ");
+        mService = null;
+        try{
+            stopForeground(true);
+        }catch (Exception e){
+            Log.i(TAG, "setForeground--error "+e.toString());
+        }
+
+        return super.onUnbind(intent);
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        Log.i(TAG, "MyAccessibilityService------onDestroy ------ ");
+        mService = null;
+        try{
+            stopForeground(true);
+        }catch (Exception e){
+            Log.i(TAG, "setForeground--error "+e.toString());
+        }
+
+
+    }
+
+    private void testBack(String text){
+        try {
+            AccessibilityNodeInfo rootInfo = getRootInActiveWindow();
+
+            if (rootInfo != null)
+                if ("com.android.settings".equals(rootInfo.getPackageName())) {
+                    List<AccessibilityNodeInfo> nodeInfos = rootInfo.findAccessibilityNodeInfosByText(text);
+                    for (AccessibilityNodeInfo node : nodeInfos) {
+                        if (node.isEnabled()) {
+                            performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK);
+                            return;
+                        }
+                    }
+
+                }
+        }catch (Exception e){
+            Log.e(TAG,"testBack----"+e);
+        }
+    }
+
+    public boolean isAutoAgree = false;
+    /**
+     * 当你这个服务正常开启的时候，就可以监听事件了，当然监听什么事件，监听到什么程度 都是由给这个服务的属性来决定的，
+     * 监控时不需要用这个监听，我会主动发起调用
+     */
+    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
+    @Override
+    public void onAccessibilityEvent(AccessibilityEvent event) {
+
+        try{
+     //       Log.d(TAG,"event.getEvent---- "+event.getPackageName()+"|"+Integer.toHexString(event.getEventType()));//打印一下类型
+            /*
+            if (event == null ||event.getPackageName()==null|| !event.getPackageName().toString().contains("packageinstaller"))//不写完整包名，是因为某些手机(如小米)安装器包名是自定义的
+                return;
+          if(!g_bUseHuaWeiMDM)   //Test 测试用，相当于直接返回
+            {
+                return;
+            }
+*/          switch (event.getEventType()) {
+                //typeNotificationStateChanged|typeWindowStateChanged|typeWindowContentChanged
+                //原来是TYPE_WINDOWS_CHANGED
+                //TYPE_VIEW_CLICKED  TYPE_VIEW_TEXT_CHANGED
+/*
+                case AccessibilityEvent.TYPE_ANNOUNCEMENT://TYPE_VIEW_CLICKED 有些设备的默认桌面也是有这个格式的，导致在默认桌面上不能滑动
+                    NetDataHub.addLog1("forbidUI----TYPE_ANNOUNCEMENT");
+                    if(NetDataHub.get() != null) {
+                        if (!NetDataHub.get().isProtectSetting())
+                            return;
+                    }
+                    for (int i = 0; i < 5 ; i++) {
+                        performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME);
+                        Thread.sleep(100);
+                    }
+                    return;
+
+
+                case AccessibilityEvent.TYPE_VIEW_HOVER_ENTER://TYPE_VIEW_CLICKED
+                    NetDataHub.addLog1("forbidUI----TYPE_VIEW_HOVER_ENTER");
+                case AccessibilityEvent.TYPE_VIEW_HOVER_EXIT:
+                    NetDataHub.addLog1("forbidUI----TYPE_VIEW_HOVER_EXIT");
+                case AccessibilityEvent.TYPE_VIEW_SELECTED://TYPE_VIEW_CLICKED
+                    NetDataHub.addLog1("forbidUI----TYPE_VIEW_SELECTED");
+                case AccessibilityEvent.TYPE_TOUCH_EXPLORATION_GESTURE_START://TYPE_VIEW_CLICKED
+                    NetDataHub.addLog1("forbidUI----TYPE_VIEW_HOVER_EXIT");
+                case AccessibilityEvent.TYPE_TOUCH_EXPLORATION_GESTURE_END://TYPE_VIEW_CLICKED
+                    NetDataHub.addLog1("forbidUI----TYPE_TOUCH_EXPLORATION_GESTURE_END");
+
+                case AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY://TYPE_VIEW_CLICKED
+                    NetDataHub.addLog1("forbidUI----TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY");
+                case AccessibilityEvent.TYPE_GESTURE_DETECTION_START://TYPE_VIEW_CLICKED
+                    NetDataHub.addLog1("forbidUI----TYPE_GESTURE_DETECTION_START");
+                case AccessibilityEvent.TYPE_GESTURE_DETECTION_END://TYPE_VIEW_CLICKED
+                    NetDataHub.addLog1("forbidUI----TYPE_GESTURE_DETECTION_END");
+                case AccessibilityEvent.TYPE_TOUCH_INTERACTION_START://TYPE_VIEW_CLICKED
+                    NetDataHub.addLog1("forbidUI----TYPE_TOUCH_INTERACTION_START");
+                case AccessibilityEvent.TYPE_TOUCH_INTERACTION_END://TYPE_VIEW_CLICKED
+                    NetDataHub.addLog1("forbidUI----TYPE_TOUCH_INTERACTION_END");
+
+                case AccessibilityEvent.TYPE_VIEW_CLICKED://TYPE_VIEW_CLICKED
+
+                case AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED://TYPE_VIEW_CLICKED  //typeAllMask
+ */          //     case AccessibilityEvent.TYPES_ALL_MASK:
+                    //Test 测试，测试在mainActivity不在活动的情况下
+              //      testBack("打印");
+
+                    //     findEMMClick(getRootInActiveWindow(),"EMM");
+                case AccessibilityEvent.TYPE_WINDOWS_CHANGED://TYPE_VIEW_CLICKED
+                    if(isAutoAgree)
+                    {
+                        Log.i(TAG, "isAutoAgree = true ");
+                        return;
+                    }
+                    if(g_bUseHuaWeiMDM)
+                    {
+                        Log.i(TAG, "华为==================== ");
+                        return;
+                    }
+
+
+                    if(NetDataHub.get() != null){
+
+                        if(!NetDataHub.get().isProtectSetting())
+                            return;
+                        if(NetDataHub.get().isCtrlApp()||NetDataHub.get().isCtrlWifi()) {
+
+                            new Thread(new Runnable() { // 匿名类的Runnable接口
+                                @Override
+                                public void run() {
+                                    AccessibilityNodeInfo rowNode1 = getRootInActiveWindow();
+                                    if (rowNode1 == null) {
+                                        Log.i(TAG, "windowList is　null");
+
+                                        return;
+                                    } else {
+                                        int i=0;
+                                        while (forbidSystemUI(rowNode1)) {
+                                            if(i++>1000)		//防止循环太多次出故障 1000
+                                            {
+                                                break;
+                                            }
+                                            //---如果黑屏---跳过管控
+                                            if(AndroidParameter.screenLock)
+                                            {
+                                                Log.i(TAG, "黑屏不禁用UI ");
+                                                break;
+                                            }
+                                            //---解锁再恢复，参数在 ActionReceiver 中监听改动
+                                            rowNode1 = getRootInActiveWindow();
+                                            try {
+                                                Thread.sleep(30);
+                                            } catch (InterruptedException e) {
+                                                Log.e(TAG, "TYPE_WINDOWS_CHANGED error---"+e.toString());
+                                            }
+                                        }
+                                    }
+                                }
+                            }).start();
+//
+  //  */
+                        }
+                    }
+            }
+        }catch (Exception e){
+            Log.e(TAG, "onAccessibilityEvent error---"+e.toString());
+        }
+    }
+
+    public boolean recycleFindSetting(AccessibilityNodeInfo info){
+
+        if(info.getPackageName()!=null&&info.getPackageName().equals("com.android.settings")) {
+            if(info.getText()!=null)
+            {
+                //Log.i(TAG, "Text：" + info.getText()+"|"+info.getClassName()+"|"+info.getViewIdResourceName()+"|D:"+info.getContentDescription());
+                //NetDataHub.get().addLog("Text：" + info.getText()+"|"+info.getClassName()+"|"+info.getViewIdResourceName()+"|D:"+info.getContentDescription());
+                    //测试四台不同品牌设备，WIFI界面内部是title
+                if(WifiHub.wifiSsid.equals(info.getText())) {
+                    if(("android:id/title").equals(info.getViewIdResourceName())){
+                        Log.i(TAG, "recycleFindSetting-----find wifiSsid");
+                        if(EMMFloatWindowService.isStart())  //服务已经开启了
+                            EMMFloatWindowService.getInstance().isShow = false;// 发现设置wifi界面，不要弹窗
+                        return true;  //如果再子窗口找到了wifi名，不处理，如果遍历完都没有，则响应返回；
+                    }else
+                    {
+                        //要全体退出
+                        performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK);
+                         return false;
+                    }
+                }
+                if("显示在其他应用的上层".equals(info.getText())) {
+                    return true;    //悬浮框权限申请界面，不执行返回
+                }
+            }
+        }
+
+        for (int i = 0; i < info.getChildCount(); i++) {
+            if(info.getChild(i)!=null){
+                if(recycleFindSetting(info.getChild(i)))
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 首先判断包名时systemui和settings相关才会进入
+     * 下拉界面以wifi_combo辨认
+     * 非白名单下的wifi界面以当前wifi名+android:id/title辨认
+     * @param info
+     * @return
+     */
+    public boolean forbidSystemUI(AccessibilityNodeInfo info){
+        try{
+            //Log.i(TAG, "fText：" + info.getText()+"|"+info.getClassName()+"|"+info.getViewIdResourceName()+"|P:"+info.getPackageName());
+
+           // Log.i(TAG, "Description：" + info.getContentDescription()+"|"+info.getPackageName());
+           // NetDataHub.get().addLog("Text：" + info.getText()+"|"+info.getClassName()+"|"+info.getViewIdResourceName()+"|D:"+info.getContentDescription()+"|"+info.getPackageName());
+            if(info==null)
+                return false;
+
+            //锁屏界面可以通过广播状态来判断，不需要这个wifi_combo了吧//暂时还得要
+            if ("com.android.systemui".equals(info.getPackageName())) {
+                Log.w(TAG, "检测到systemui----screenLock："+AndroidParameter.screenLock );
+                NetDataHub.addLog1("EMMService screenLock = "+AndroidParameter.screenLock +"getViewIdResourceName = "+info.getViewIdResourceName()+"|||"+info.getText());
+                if(!AndroidParameter.screenLock)//麻烦，联新PDA不能用这个简单的方式
+                {
+                /*2022.7.14 外星人用下面这个不好用     下面的遍历就不需要了？
+                if("com.android.systemui:id/wifi_combo".equals(info.getViewIdResourceName())){
+                    Log.w(TAG, " forbidUI" );
+                 */
+                    NetDataHub.addLog1("forbidUI1----GLOBAL_ACTION_BACK");
+                    performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK);
+                    //performGlobalAction(AccessibilityService.GLOBAL_ACTION_QUICK_SETTINGS);
+                    performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME);
+               //     performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME);
+                    return true;
+                }
+
+  //*           //2022.3.2 联新PDA上，判断AndroidParameter.screenLock，在多任务界面不行，判断有误
+                for (int i = 0; i < info.getChildCount(); i++) {
+                    if(info.getChild(i)!=null){
+                        if(forbidSystemUI(info.getChild(i)))
+                            return true;
+                    }
+                }
+//*/
+            }
+            else if ("com.android.settings".equals(info.getPackageName())) {   //找到wifi设置界面则返回false
+                if(!g_isWhiteWifi||g_isApplyForFloat) {          //非白名单  或者是申请悬浮请求
+                    if(info.getText()!=null) {   //Log.i(TAG, "Text：" + info.getText()+"|"+info.getClassName()+"|"+info.getViewIdResourceName()+"|D:"+info.getContentDescription());
+                        //NetDataHub.get().addLog("Text：" + info.getText()+"|"+info.getClassName()+"|"+info.getViewIdResourceName()+"|D:"+info.getContentDescription());
+                        //测试四台不同品牌设备，WIFI界面内部是title
+                        if(WifiHub.wifiSsid.equals(info.getText())) {
+                            if(("android:id/title").equals(info.getViewIdResourceName())){
+                                Log.w(TAG, "forbidSystemUI-----find wifiSsid");
+                            //    NetDataHub.get().addLog("wifi设置界面-----不返回 ");
+                                if(EMMFloatWindowService.isStart())  //服务已经开启了
+                                    EMMFloatWindowService.getInstance().isShow = false;// 发现设置wifi界面，不要弹窗
+                          //      NetDataHub.addLog1("emm发现设置wifi界面--返回fasle,不再执行" );
+                                return false;  //如果再子窗口找到了wifi名，不处理，如果遍历完都没有，则响应返回；
+                            }else {
+                                //要全体退出
+                               // Log.w(TAG, "---直接返回--");
+                                //部分横屏过宽，可以左侧选项，右侧设置，左右侧设置不同，以后再考虑
+                                NetDataHub.addLog1("emm未发现设置wifi界面--返回fasle,不再执行" );
+                                performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK);
+                                return false;
+                            }
+                        }
+                        if("显示在其他应用的上层".equals(info.getText())) {
+                            NetDataHub.addLog1("emm发现显示在其他应用的上层--返回fasle,不再执行" );
+                            return false;    //悬浮框权限申请界面，不执行返回
+                        }
+                    }   //未找到，继续遍历子窗口，无子窗口则返回true;
+                    for (int i = 0; i < info.getChildCount(); i++) {
+                        if(info.getChild(i)!=null){
+                            if(!forbidSystemUI(info.getChild(i)))
+                                return false;
+                        }
+                    }
+                    NetDataHub.addLog1("-在白名单外，发现setting,返回true,继续执行,找一下有无wifi界面" );
+                    return true;
+                }
+                NetDataHub.addLog1("-在白名单内，禁用一切设置，返回tue" );
+                performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK);
+                return true;//该改false吧      好像不用
+            }
+
+
+        }catch (Exception e){
+            Log.e(TAG, "forbidSystemUI error---"+e.toString());
+        }
+        NetDataHub.addLog1("--Text：" + info.getText()+"|"+info.getPackageName()+"无发现，返回false");
+        return false;
+    }
+
+    /**
+     * 滑动轨迹
+     * 注意7.0以上的手机才有此方法，请确保运行在7.0手机上
+     * 2021.11.13 更新滑动时间由管理机传递过来
+     */
+    public void dispatchGesture(int x, int y,int xPos, int yPos,int nTime) {
+        try {
+            Path path = new Path();
+            path.moveTo(x , y);
+            if(xPos<15)
+                xPos = 15;
+
+            if(nTime<50)
+            {
+                nTime = 50;
+            }
+            //约束一下X,Y的范围，未知名情况下会为负，消除此影响
+            xPos = xPos > 15 ? xPos:15;
+            int xMax = (int)(AndroidParameter.width * AndroidParameter.density)-15;
+            xPos = xPos < xMax? xPos:xMax;
+
+            yPos = yPos > 15 ? yPos:15;
+            int yMax = (int)(AndroidParameter.hight * AndroidParameter.density)-15;
+            yPos = yPos < yMax? yPos:yMax;
+
+            path.lineTo(xPos, yPos);
+
+         //   Log.w("OnReceivePack", "左击弹起：" + x + "," + y + "," + xPos + "," + yPos);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+
+                dispatchGesture(new GestureDescription.Builder().addStroke(new GestureDescription.StrokeDescription
+                       (path, 0, nTime)).build(), null, null);
+          }
+//        new AccessibilityService.GestureResultCallback(){
+//            @Override
+//            public void onCompleted(GestureDescription gestureDescription) {
+//                super.onCompleted(gestureDescription);
+//            }
+//
+//            @Override
+//            public void onCancelled(GestureDescription gestureDescription) {
+//                super.onCancelled(gestureDescription);
+//            }
+//        }
+
+        }catch (Exception e) {
+            Log.e(TAG, "dispatchGesture-----error:"+e.toString() );
+        }
+    }
+
+    /**
+     * 长按指定位置
+     * 注意7.0以上的手机才有此方法，请确保运行在7.0手机上
+     */
+    public void dispatchGestureLongClick(int x, int y) {
+        try {
+
+            Path path = new Path();
+            path.moveTo(x - 1, y - 1);
+            path.lineTo(x, y - 1);
+            path.lineTo(x, y);
+            path.lineTo(x - 1, y);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                dispatchGesture(new GestureDescription.Builder().addStroke(new GestureDescription.StrokeDescription
+                        (path, 0, 800)).build(), null, null);
+            }
+        }catch (Exception e) {
+            Log.e(TAG, "dispatchGestureLongClick-------- "+e.toString() );
+        }
+    }
+
+
+    public boolean rycleFindClick(String... text){
+        try {
+            for (int i = 0; i <10 ; i++) {
+                for(String temp:text)
+                    if(findTextClick(getRootInActiveWindow(),temp))
+                        return true;
+                if(i==9) {
+                  //  Log.w(TAG, "查找------" + text + "------ 失败");
+                    return false;
+                }
+                Thread.sleep(120);
+            }
+            Log.w(TAG, "return------ true=" );
+        } catch (Exception e) {
+            e.printStackTrace();
+
+        }
+        return false;
+    }
+    public boolean isUpdateApk = false;
+    public void autoUpdate() {
+
+        // AccessibilityNodeInfo nodeInfo = getRootInActiveWindow(); //当前窗口根节点
+        try
+        {
+            Thread.sleep(1000);
+            rycleFindClick("安装","继续安装");
+
+            Thread.sleep(1500);
+            rycleFindClick("允许");
+
+            Thread.sleep(1500);
+            rycleFindClick("继续安装","安装");
+
+            Thread.sleep(2000);
+            rycleFindClick("由系统确定");
+            Thread.sleep(3000);
+            rycleFindClick("打开");
+        }catch (Exception e){
+
+        }
+
+    }
+
+
+    //手动写的代码循环查找子节点，不用了，用系统方法findAccessibilityNodeInfosByText吧
+    public boolean autoUpdate1() {
+
+        try {
+
+            Thread.sleep(2000);
+
+            for (int i = 0; i <8 ; i++) {
+                if(findKey(getRootInActiveWindow(), "安装"))
+                    break;
+                if(i==7)
+                    Log.w(TAG,"安装----- 失败");
+                Thread.sleep(500);
+            }
+
+            Thread.sleep(2000);
+            for (int i = 0; i <5 ; i++) {
+                if(findKey(getRootInActiveWindow(), "允许"))
+                    break;
+                if(i==4)
+                    Log.w(TAG,"允许----- 失败");
+                Thread.sleep(300);
+            }
+
+
+            Thread.sleep(2000);
+            for (int i = 0; i <20 ; i++) {
+                if(findKey(getRootInActiveWindow(), "继续安装","安装"))
+                    break;
+                if(i==19)
+                    Log.w(TAG,"继续安装----- 失败");
+                Thread.sleep(300);
+            }
+
+
+            Thread.sleep(1000);
+            for (int i = 0; i <5 ; i++) {
+                if(findKey(getRootInActiveWindow(), "由系统确定"))   //淮二PDA的存储位置
+                    break;
+                if(i==4)
+                    Log.w(TAG,"由系统确定----- 失败");
+                Thread.sleep(300);
+            }
+
+        } catch (Exception e) {
+            Log.e(TAG,"autoUpdate----- error"+e.toString());
+        }finally {
+            Log.w(TAG,"autoUpdate----- end");
+            return true;
+        }
+    }
+
+    public void  agreeScreenCast() {
+
+        try{
+   /*         if(!rycleFindClick("立即开始")&& !rycleFindClick("允许")){
+                Log.w(TAG, "agreeScreenCast---继续" );
+                Thread.sleep(1500);
+                if(!rycleFindClick("立即开始"))
+                    rycleFindClick("允许");
+            }
+   */
+            if(!rycleFindClick("立即开始","允许")){
+                Log.w(TAG, "agreeScreenCast---继续" );
+                Thread.sleep(1800);
+                rycleFindClick("立即开始","允许");
+            }
+//Test        桌面包名部位当前包名你，说明不是默认桌面，不需要展示。
+
+//            Log.w(TAG, "RootPackageName:"+getRootInActiveWindow().getPackageName());
+//            if(getPackageName()!=null&&!getPackageName().equals(getRootInActiveWindow().getPackageName()))
+
+
+        } catch (Exception e) {
+            Log.e(TAG,"agreeScreenCast----- error"+e.toString());
+        }finally {
+            isAutoAgree = false;
+            Log.w(TAG,"agreeScreenCast----- end----isAutoAgree设置为false");
+        }
+    }
+
+
+    public boolean findKey(AccessibilityNodeInfo info,String... text) {
+
+        if(info==null)
+        {
+            Log.d(TAG,"(info==null)"+text);
+            return false;
+        }
+
+        Log.i(TAG, "findKeyText："+ text+"|"+ info.getText()+"|"+info.getClassName()+"|P:"+info.getPackageName());
+
+        for(String temp:text)
+        {
+            if(temp.equals(info.getText()))
+            {
+                Log.w(TAG,"findKey --成功-- "+temp);
+                info.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                return true;
+            }
+        }
+        for (int i = 0; i < info.getChildCount(); i++) {
+         if(findKey(info.getChild(i),text))
+            return true;
+        }
+        return false;
+    }
+
+    /**
+    * @author  fsy
+    * @date    2022/1/11 13:22
+    * @return
+    * @description  做了修改，传输不定数量的Text
+    */
+    private boolean findTextClick(AccessibilityNodeInfo nodeInfo, String text) {
+
+        try {
+            if (nodeInfo == null)
+                return false;
+
+                List<AccessibilityNodeInfo> nodes = nodeInfo.findAccessibilityNodeInfosByText(text);
+
+                Log.i(TAG, "findTextClick: " + text + ", "  + " ViewIdResourceName:"+nodeInfo.getViewIdResourceName());
+                if (nodes == null || nodes.isEmpty())
+                    return false;
+                Log.i(TAG, "findTextClick: " + text + ", " + nodes.size() + ", ");
+                for (AccessibilityNodeInfo node : nodes) {
+                    if (node.isEnabled() && node.isClickable()) {
+                        node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+
+                        Log.i(TAG, "Text：" + node.getText()+"|"+"|"+node.getViewIdResourceName()+"|P:"+node.getPackageName()+"|:"+getPackageName());
+                        return true;
+                    }
+                }
+
+        }catch (Exception e)
+        {
+            Log.e(TAG,"findTxtClick---"+text+"---error:"+e.toString());
+        }
+        return false;
+    }
+
+
+    /**
+    * @author  fsy
+    * @date    2022/1/7 9:17
+    * @return
+    * @description  自动同意开启悬浮框，设计的不好用
+    */
+    public void autoAgree() {
+
+        try
+        {
+            Log.i(TAG, "autoAgree: EMM 悬浮框1");
+
+            AccessibilityNodeInfo nodeInfo = getRootInActiveWindow();
+            if (nodeInfo == null)
+                return  ;
+
+            rycleFindClick("EMM");
+            Log.i(TAG, "autoAgree: EMM 悬浮框2");
+            rycleFindClick("允许显示在其他应用上层");
+
+            Log.i(TAG, "autoAgree: EMM" + ", "  + " ViewIdResourceName:"+nodeInfo.getViewIdResourceName());
+
+        }catch (Exception e){
+
+        }
+    }
+}

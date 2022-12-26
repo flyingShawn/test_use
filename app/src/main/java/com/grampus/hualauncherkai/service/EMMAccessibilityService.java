@@ -58,25 +58,20 @@ public class EMMAccessibilityService extends AccessibilityService {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
 
-                //--------此处是以前写的，这段应该不需要才对，2022.12.18
-                NotificationChannel channel = new NotificationChannel("Foreground_Service",
-                        "Foreground_Service", NotificationManager.IMPORTANCE_LOW);
+                NotificationChannel channel = new NotificationChannel("EMMA11y_service",
+                        "阳途安卓辅助功能", NotificationManager.IMPORTANCE_LOW);
                 NotificationManager manager = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
-                if (manager == null) {
-                    return;
-                }
                 manager.createNotificationChannel(channel);
-                //----------
-                Notification notification =
-                        new NotificationCompat.Builder(this, "Foreground_Service")
-                                .setContentTitle("阳途安卓辅助功能")
-                                .setContentText("正在运行中")
-                                .setWhen(System.currentTimeMillis())
-                                .setSmallIcon(ic_launcher)
-                                .setLargeIcon(BitmapFactory.decodeResource(getResources(), ic_launcher))
-                                .build();
-                startForeground(11, notification);
             }
+            Notification notification =
+                    new NotificationCompat.Builder(this, "EMMA11y_service")
+                            .setContentTitle("阳途安卓辅助功能")
+                            .setContentText("正在运行中")        //.setWhen(System.currentTimeMillis())
+                            .setSmallIcon(ic_launcher)
+                            .setLargeIcon(BitmapFactory.decodeResource(getResources(), ic_launcher))
+                            .build();
+            startForeground(11, notification);
+
         }catch (Exception e) {
             Log.e(TAG, "setForeground------error:"+e.toString() );
         }
@@ -250,7 +245,6 @@ public class EMMAccessibilityService extends AccessibilityService {
                         if(NetDataHub.get().isCtrlApp()||NetDataHub.get().isCtrlWifi()) {
 /*
 */
-
 // 2022.11.30 六院测试
                             runForbidSystemUI();
                         }

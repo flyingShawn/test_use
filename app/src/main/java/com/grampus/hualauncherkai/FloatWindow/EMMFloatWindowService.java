@@ -147,23 +147,20 @@ public class EMMFloatWindowService extends Service {
     private void setForeground() {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                NotificationChannel channel = new NotificationChannel("Foreground_Service",
-                        "Foreground_Service", NotificationManager.IMPORTANCE_LOW);
+                NotificationChannel channel = new NotificationChannel("wifi_service",
+                        "wifi白名单策略", NotificationManager.IMPORTANCE_LOW);
                 NotificationManager manager = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
-                if (manager == null) {
-                    return;
-                }
                 manager.createNotificationChannel(channel);
-                Notification notification =
-                        new NotificationCompat.Builder(this, "Foreground_Service")
-                                .setContentTitle("wifi白名单策略")
-                                .setContentText("开启检测中")
-                                .setWhen(System.currentTimeMillis())
-                                .setSmallIcon(ic_launcher)
-                                .setLargeIcon(BitmapFactory.decodeResource(getResources(), ic_launcher))
-                                .build();
-                startForeground(13, notification);
             }
+            Notification notification =
+                    new NotificationCompat.Builder(this, "wifi_service")
+                            .setContentTitle("wifi白名单策略")
+                            .setContentText("开启检测中")
+                            .setSmallIcon(ic_launcher)
+                            .setLargeIcon(BitmapFactory.decodeResource(getResources(), ic_launcher))
+                            .build();
+            startForeground(13, notification);
+
         }catch (Exception e) {
             Log.e(TAG, "setForeground------error:"+e.toString());
         }

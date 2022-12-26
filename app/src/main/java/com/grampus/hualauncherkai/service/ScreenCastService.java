@@ -76,32 +76,26 @@ public final class ScreenCastService extends Service {
     }
 
     /**
-     * 设置应用服务未前台，前台通知展示
+     * @author  fsy
+     * @description  设置应用服务未前台，前台通知展示，保证服务不会被系统回收
      */
     private void setForeground() {
         try{
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                NotificationChannel channel = new NotificationChannel("Foreground_Service",
-                        "Foreground_Service", NotificationManager.IMPORTANCE_LOW);
+                NotificationChannel channel = new NotificationChannel("screen_cast_service",
+                        "阳途移动终端安全管理", NotificationManager.IMPORTANCE_LOW);
                 NotificationManager manager =
                         (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-                if (manager == null) {
-                    return;
-                }
                 manager.createNotificationChannel(channel);
-                Notification notification =
-                        new NotificationCompat.Builder(this, "Foreground_Service")
-                                .setContentTitle("阳途移动终端安全管理")
-                                .setContentText("正在运行中")
-                                .setWhen(System.currentTimeMillis())
-                                .setSmallIcon(ic_launcher)
-                                .setLargeIcon(BitmapFactory.decodeResource(getResources(), ic_launcher))
-                                .build();
-                startForeground(12, notification);
-            }  /* .setAutoCancel(true)
-                    .setCategory(Notification.CATEGORY_SERVICE)
-                    .setOngoing(true)
-                    .setPriority(NotificationManager.IMPORTANCE_LOW)*/
+            }
+            Notification notification =
+                    new NotificationCompat.Builder(this, "screen_cast_service")
+                            .setContentTitle("阳途移动终端安全管理")
+                            .setContentText("正在运行中")
+                            .setSmallIcon(ic_launcher)
+                            .setLargeIcon(BitmapFactory.decodeResource(getResources(), ic_launcher))
+                            .build();
+            startForeground(12, notification);
         }catch (Exception e){
             Log.i(TAG, "setForeground--error "+e.toString());
         }

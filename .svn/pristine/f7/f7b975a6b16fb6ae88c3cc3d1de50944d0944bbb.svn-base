@@ -1,7 +1,0 @@
-package com.grampus.hualauncherkai.UI;
-
-import android.preference.PreferenceFragment;
-
-public class EmptyFragment extends PreferenceFragment
-{
-}

@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!--2020.04.13 未来添加-->
-<!--Android P系统中，使用http发送的请求，会被系统拦截-->
-<!--https则不会，需要设置权限-->
-<network-security-config>
-    <base-config cleartextTrafficPermitted="true" />
-</network-security-config>

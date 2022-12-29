@@ -21,7 +21,7 @@
 
 
     <fragment
-        android:id="@+id/settings_phone2"
+        android:id="@+id/settings_more"
         android:name="com.grampus.hualauncherkai.fragment.MoreSettingFragment"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"/>

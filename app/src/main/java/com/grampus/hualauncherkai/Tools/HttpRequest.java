@@ -28,8 +28,8 @@ import java.util.Map;
 public class HttpRequest
 {
 
-
-    public static String httpGet(String getUrl, Map<String, String> getHeaders) throws IOException
+    //remove 掉了throws IOException
+    public static String httpGet(String getUrl, Map<String, String> getHeaders)
     {
         String rs="";
         Tell.log("http请求Get URL:" + getUrl);

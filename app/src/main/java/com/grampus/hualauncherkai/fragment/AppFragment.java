@@ -7,6 +7,7 @@ import android.content.pm.ResolveInfo;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.Message;
 import android.os.SystemClock;
 import android.text.format.DateFormat;
@@ -200,7 +201,8 @@ public class AppFragment extends Fragment
         return view;
     }
 
-    Handler mHandler = new Handler()
+    //2022.12.29 add Looper.getMainLooper()
+    private Handler mHandler = new Handler(Looper.getMainLooper())
     {
         @Override
         public void handleMessage(Message msg)

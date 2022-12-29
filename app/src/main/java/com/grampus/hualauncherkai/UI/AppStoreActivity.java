@@ -14,9 +14,9 @@ import android.widget.AdapterView;
 import android.widget.ListView;
 import android.widget.Toast;
 
-import com.grampus.hualauncherkai.EMMApp;
 import com.grampus.hualauncherkai.Data.AppItemRes;
 import com.grampus.hualauncherkai.Data.NetDataHub;
+import com.grampus.hualauncherkai.EMMApp;
 import com.grampus.hualauncherkai.R;
 import com.grampus.hualauncherkai.Tools.DownloadUtils.DownloadFile;
 import com.grampus.hualauncherkai.Tools.HttpRequest;
@@ -37,7 +37,6 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
-import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
@@ -215,16 +214,13 @@ public class AppStoreActivity extends BaseActivity
                 {
                     if (!app.isDownLoading())
                     {
-
                         downLoadApk(app);
-//                        NetDataHub.get().addLog("EMM-------应用下载1");
                         LogTrace.i(TAG, "downLoadApk", "--------------------");
                     }
                     else
                     {
                         LogTrace.i(TAG, "downLoadingApk", "--------------------");
                         Toast.makeText(AppStoreActivity.this, "应用正在下载中...", Toast.LENGTH_SHORT).show();
-//                        NetDataHub.get().addLog("EMM-------应用正在下载中1");
                     }
                 }
             }
@@ -387,7 +383,7 @@ public class AppStoreActivity extends BaseActivity
                         message.what = 1;
                         handler.sendMessage(message);
                     }
-                    catch (IOException e)
+                    catch (Exception e)
                     {
                         Message message = new Message();
                         message.what = 2;

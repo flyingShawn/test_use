@@ -1,8 +1,6 @@
 package com.grampus.hualauncherkai.Tools;
 
 import android.content.Context;
-import android.os.Handler;
-import android.os.Message;
 import android.widget.Toast;
 
 /**
@@ -13,8 +11,6 @@ public class Tell {
 
 
     static public Toast toast;
-
-
 
     static public void toast(String data, Context context){
         if(toast!=null){

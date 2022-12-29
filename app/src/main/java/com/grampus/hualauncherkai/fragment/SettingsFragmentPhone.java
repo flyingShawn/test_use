@@ -1,12 +1,11 @@
 package com.grampus.hualauncherkai.fragment;
 
-import static com.grampus.hualauncherkai.UI.MainActivity.androidv;
-
 import android.app.FragmentManager;
 import android.app.FragmentTransaction;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.Message;
 import android.preference.Preference;
 import android.preference.PreferenceFragment;
@@ -19,6 +18,8 @@ import com.grampus.hualauncherkai.UI.MainActivity;
 import com.grampus.hualauncherkai.UI.ShowAdminRightActivity;
 import com.grampus.hualauncherkai.UI.ShowDeviceManageActivity;
 import com.grampus.hualauncherkai.UI.WiFiWhiteListActivity;
+
+import static com.grampus.hualauncherkai.UI.MainActivity.androidv;
 
 public class SettingsFragmentPhone extends PreferenceFragment implements Preference.OnPreferenceClickListener
 {
@@ -33,8 +34,8 @@ public class SettingsFragmentPhone extends PreferenceFragment implements Prefere
     private Preference updateVersion;
 
 
-    //---------add by gwb;2020.10.21
-    public Handler handler = new Handler()
+    //---------add by gwb;2020.10.21    //Looper.getMainLooper() 2022.12.29
+    public Handler handler = new Handler(Looper.getMainLooper())
     {
         @Override
         public void handleMessage(Message msg)

@@ -619,7 +619,7 @@ public class NetDataHub
     {
         m_bUseGpsPos = bUseGpsPos;
     }
-    public void setForbitAP(boolean bForbitAP)
+    public void setForbidAP(boolean bForbitAP)
     {
         m_bForbitAP = bForbitAP;
     }
@@ -657,11 +657,11 @@ public class NetDataHub
 
         try {
 
-            ComponentName componet  = new ComponentName(conText, DeviceReceiver.class);
+            ComponentName component  = new ComponentName(conText, DeviceReceiver.class);
 
             DeviceControlManager dev = new DeviceControlManager();
 
-            dev.clearDefaultLauncher(componet);
+            dev.clearDefaultLauncher(component);
 
             NetDataHub.get().addLog("clearHuaWeiDefaultDesktop-----clearDefaultLauncher----调用成功");
 
@@ -756,13 +756,13 @@ public class NetDataHub
         if (policyChange.equals("1"))
         {
             allLog.append("\n\n\n 策略发生变化了--------policyChange=1");
-            allLog.append("\n是否进行wifi白名单监控:" + isCtrlWifi);
-            allLog.append("\n是否进行APP白名单监控:" + isCtrlApp);
+            allLog.append("\n是否进行wifi白名单监控:").append(isCtrlWifi);
+            allLog.append("\n是否进行APP白名单监控:").append(isCtrlApp);
             allLog.append("\n白名单APP：");
 
             for (String one : whiteApp)
             {
-                allLog.append("\n" + one);
+                allLog.append("\n").append(one);
             }
             allLog.append("\n白名单WIFI:");
             for (int i = 0; i < wifiList.length(); i++)
@@ -770,7 +770,7 @@ public class NetDataHub
                 try
                 {
                     JSONObject one = wifiList.getJSONObject(i);
-                    allLog.append("\n" + one.getString("Name1") + " " + one.getString("Name2"));
+                    allLog.append("\n").append(one.getString("Name1")).append(" ").append(one.getString("Name2"));
                 }
                 catch (JSONException e)
                 {
@@ -782,19 +782,16 @@ public class NetDataHub
         else if (policyChange.equals("0"))
         {
             allLog.append("\n policyChange=0");
-            allLog.append("\n是否进行wifi白名单监控:" + isCtrlWifi);
-            allLog.append("\n是否进行APP白名单监控:" + isCtrlApp);
+            allLog.append("\n是否进行wifi白名单监控:").append(isCtrlWifi);
+            allLog.append("\n是否进行APP白名单监控:").append(isCtrlApp);
         }
-        allLog.append("\nMac:" + EMMApp.getInstance().macAddr);
-        allLog.append("\nDiskNum:" + EMMApp.getInstance().diskNum);
-        allLog.append("\nZR-URL:" + NACUrl);
-        allLog.append("\n显示GPS位置信息:" + m_bUseGpsPos);
-        allLog.append("\n禁用热点:" + m_bForbitAP);
-        allLog.append("\n显示应用商店:" + isShowAppStore);
-
-
-        allLog.append("\n  ");
-        allLog.append("\n  ");
+        allLog.append("\nMac:").append(EMMApp.getInstance().macAddr)
+                .append("\nDiskNum:").append(EMMApp.getInstance().diskNum)
+                .append("\nZR-URL:").append(NACUrl)
+                .append("\n显示GPS位置信息:").append(m_bUseGpsPos)
+                .append("\n禁用热点:").append(m_bForbitAP)
+                .append("\n显示应用商店:").append(isShowAppStore)
+                .append("\n  \n  ");
 
         /*
         if (allLog.length() > 10000)

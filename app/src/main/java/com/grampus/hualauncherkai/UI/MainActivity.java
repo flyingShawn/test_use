@@ -25,6 +25,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.Message;
 import android.os.PowerManager;
 import android.os.Process;
@@ -117,70 +118,61 @@ public class MainActivity extends FragmentActivity
     public static MainActivity getInstance() {
         return mainActivity;
     }
-    public Handler handler = new Handler(new Handler.Callback()
+    public Handler handler = new Handler(Looper.getMainLooper())
     {
         @Override
-        public boolean handleMessage(Message msg)
+        public void handleMessage(Message msg)
         {
             //super.handleMessage(msg);
-            if (msg.what == 1)
-            {
-                //Tell.toast("策略改变，刷新桌面"+c.get(Calendar.MINUTE)+"分"+c.get(Calendar.SECOND)+"秒",getApplication());
-                NetDataHub.get().setCanReflashDesk(true);
-                //reflashPageAndOffen();del by fsy 20220726 如果当前已经是桌面，应该立刻刷新    此处需要修改
-            }
-            else if (msg.what == 2)
-            {
-                removeViewPager();
-            }
-            else if (msg.what == 3)
-            {
-                Tell.toast((String) msg.obj, getApplicationContext());
-            }
-            else if(msg.what == 4)//add by gwb;升级
-            {
-                showDialog(MainActivity.this,(String)msg.obj);
-            }
-            else if(msg.what == 5)//add by gwb;
-            {
-                Toast.makeText(MainActivity.this, "当前已是最新版本，无需升级！", Toast.LENGTH_SHORT).show();
-            }
-            else if(msg.what == 6)//add by gwb;
-            {
-                Toast.makeText(MainActivity.this, "服务器没有升级包!", Toast.LENGTH_SHORT).show();
+            switch (msg.what) {
+
+                case 1:
+                    NetDataHub.get().setCanReflashDesk(true);
+                    //refreshPageAndOffen();del by fsy 20220726 如果当前已经是桌面，应该立刻刷新    此处需要修改
+                    break;
+                case 2:
+                    removeViewPager();
+                    break;
+                case 3:
+                    Tell.toast((String) msg.obj, getApplicationContext());
+                    break;
+                case 4:
+                    showDialog(MainActivity.this,(String)msg.obj);
+                    break;
+                case 5:
+                    Toast.makeText(MainActivity.this, "当前已是最新版本，无需升级！", Toast.LENGTH_SHORT).show();
+                    break;
+                case 6:
+                    Toast.makeText(MainActivity.this, "服务器没有升级包!", Toast.LENGTH_SHORT).show();
+                    break;
+                case 7:
+                    Toast.makeText(MainActivity.this, "辅助功能尚未开启,无法进行控制!", Toast.LENGTH_LONG).show();
+                    break;
+                case 8:
+                    Toast.makeText(MainActivity.this, "远程功能需先获取截屏权限", Toast.LENGTH_LONG).show();
+                    break;
+                case 9:
+                    Toast.makeText(MainActivity.this, "请将EMM显示在其他应用上层设为允许", Toast.LENGTH_LONG).show();
+                    break;
+                case 10:
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                        startMediaProjection();
+                    }
+                    break;
+                case 11:
+                    updateApk(MainActivity.this,(String)msg.obj);
+                    break;
+                case 12:
+                    wakeAndUnlock(MainActivity.this);
+                    break;
+                case 13:
+                    Toast.makeText(MainActivity.this,"请在电池优化中将EMM设置为不优化",Toast.LENGTH_LONG).show();
+                    break;
+                default:
             }
 
-            else if(msg.what == 7)//add by fsy;
-            {
-                Toast.makeText(MainActivity.this, "辅助功能尚未开启,无法进行控制!", Toast.LENGTH_LONG).show();
-            }
-            else if(msg.what == 8)//add by fsy;
-            {
-                Toast.makeText(MainActivity.this, "远程功能需先获取截屏权限", Toast.LENGTH_LONG).show();
-            }
-            if (msg.what == 9)//add by fsy 2021.11.5
-            {
-                Toast.makeText(MainActivity.this, "请将EMM显示在其他应用上层设为允许", Toast.LENGTH_LONG).show();
-            }
-            if (msg.what == 10)//add by fsy 2021.11.16  //屏幕监视来的消息
-            {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    startMediaProjection();
-                }
-            }
-
-            else if(msg.what == 11)//add by fsy;跳过安装确认框，升级
-            {
-                updateApk(MainActivity.this,(String)msg.obj);
-            }
-            else if(msg.what == 12)//add by fsy;其他应用有需要的通知亮屏
-            {
-                wakeAndUnlock(MainActivity.this);
-            }
-
-            return false;
         }
-    });
+    };
 
     /**
     * @author  fsy
@@ -247,15 +239,15 @@ public class MainActivity extends FragmentActivity
         view_pager.removeAllViews();
     }
 
-    void reflashPageAndOffen()
+    void refreshPageAndOffen()
     {
-        NetDataHub.get().addLog("reflashPageAndOffen------刷新桌面.");
+        NetDataHub.get().addLog("refreshPageAndOffen------刷新桌面.");
         Log.w("EMMMain","------刷新桌面----begin.");
         try {
 
             /*不能随便刷新
             if(!NetDataHub.get().CheckAppHaveChange()&&!NetDataHub.get().getCanReflashDesk() ){
-                NetDataHub.get().addLog("reflashPageAndOffen------APP没有变化，不刷新.");
+                NetDataHub.get().addLog("refreshPageAndOffen------APP没有变化，不刷新.");
                 return ;
             }
             */
@@ -284,10 +276,10 @@ public class MainActivity extends FragmentActivity
             }
 
             OffenApp.load(AppDataHub.getOffen());
-            NetDataHub.get().addLog("reflashPageAndOffen-----刷新桌面----End.");
+            NetDataHub.get().addLog("refreshPageAndOffen-----刷新桌面----End.");
         }
         catch(Exception e) {
-            NetDataHub.get().addLog("reflashPageAndOffen------异常-----:"+e.getMessage());;
+            NetDataHub.get().addLog("refreshPageAndOffen------异常-----:"+e.getMessage());;
         }
     }
 
@@ -356,18 +348,7 @@ public class MainActivity extends FragmentActivity
         return true;
     }
     public void checkPermission() { //add by gwb;2020.10.13
-
         try {
-            int targetSdkVersion = 0;
-
-            /* del by gwb;2020.11.25
-            String[] PermissionString = {Manifest.permission.READ_EXTERNAL_STORAGE,
-                    Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                    Manifest.permission.ACCESS_WIFI_STATE,
-                    Manifest.permission.CHANGE_WIFI_STATE,
-                    Manifest.permission.SET_WALLPAPER};
-
-             */
             //-----add by gwb;2020.11.25 增加地图支持
             String[] PermissionString = {Manifest.permission.READ_EXTERNAL_STORAGE,
                     Manifest.permission.WRITE_EXTERNAL_STORAGE,
@@ -392,7 +373,6 @@ public class MainActivity extends FragmentActivity
                 }
                 Log.w(TAG,"checkPermission----弹出权限申请:" + PermissionString.toString());
                 // 一次请求多个权限, 如果其他有权限是已经授予的将会自动忽略掉
-                //ActivityCompat.requestPermissions(this, PermissionString, 1);
                 this.requestPermissions( PermissionString, 123);//一定要用下面的，否则回调收不到通知。
                 //}
 
@@ -641,7 +621,7 @@ public class MainActivity extends FragmentActivity
             new SampleEula(this, mDevicePolicyManager, mAdminName).show();
 
             checkPermission();
-            checkBatteryOptimization();
+
 
 
 
@@ -686,46 +666,6 @@ public class MainActivity extends FragmentActivity
         }
     }
 
-    /**
-    * @author  fsy
-    * @date    2022/12/23 9:48
-    * @return
-    * @description 官方文档上是 Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
-    *         很多机型上是  Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS
-    */
-    private void checkBatteryOptimization() {
-        if(!isIgnoringBatteryOptimizations()){
-            //Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
-
-            Intent intent = new Intent();
-            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK|Intent.FLAG_ACTIVITY_NEW_TASK);
-            //intent.setAction(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
-            intent.setAction(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
-
-            Log.w(TAG, "main--------checkBatteryOptimization");
-            //startActivity(intent);
-            startActivityForResult(intent,301);
-        }
-    }
-
-
-
-    private Boolean isIgnoringBatteryOptimizations() {
-
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-            return true;
-        }
-        boolean isIgnoring = false;
-        PowerManager powerManager = (PowerManager)getSystemService(POWER_SERVICE);
-
-        if (powerManager!=null) {
-            isIgnoring = powerManager.isIgnoringBatteryOptimizations(getPackageName());
-        }
-        Log.w(TAG, "isIgnoringBatteryOptimizations:"+isIgnoring);
-        return isIgnoring;
-    }
-
-
     @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     public void startMediaProjection(){
         try {
@@ -764,10 +704,8 @@ public class MainActivity extends FragmentActivity
        Log.w("EMMMain","onResume--页数:"+allPage.size()+"  显示APP总数:" + AppDataHub.getShowAppCount());
         //需要刷新桌面
         if(NetDataHub.get().getCanReflashDesk()){
-            reflashPageAndOffen();
+            refreshPageAndOffen();
         }
-
-        // reflashPageAndOffen();
 
         try{
 
@@ -1106,14 +1044,6 @@ public class MainActivity extends FragmentActivity
         if (requestCode == 777) {
             NetDataHub.get().setHuaWeiDesktop(this);//add by gwb;2020.10.13
         }
-        else if (requestCode == 301) {
-            if(resultCode == Activity.RESULT_OK){
-                Toast.makeText(getApplication(), "设置省电白名单成功",Toast.LENGTH_LONG);
-            }else
-                Toast.makeText(getApplication(), "取消设置省电白名单成功",Toast.LENGTH_LONG);
-
-
-        }
         else if (requestCode == 300) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 if (resultCode != Activity.RESULT_OK){  //没点确定就算了。不做再次弹出申请的操作
@@ -1166,7 +1096,6 @@ public class MainActivity extends FragmentActivity
         super.onConfigurationChanged(newConfig);
 
         NetDataHub.get().setCanReflashDesk(true);
-        //reflashPageAndOffen();
         Log.w(TAG, "MainActivity-----横竖屏切换，状态：" + newConfig.orientation);
         if(NetDataHub.get() != null){
             NetDataHub.get().addLog("横竖屏切换，状态：" + newConfig.orientation );

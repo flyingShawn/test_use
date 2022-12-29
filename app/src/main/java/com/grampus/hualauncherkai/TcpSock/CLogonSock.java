@@ -1,6 +1,7 @@
 package com.grampus.hualauncherkai.TcpSock;
 
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
@@ -409,6 +410,7 @@ public class CLogonSock extends Thread{
             bufferedOutputStream = null;
         }
     }
+    @SuppressLint("HandlerLeak")
     @Override
     public void run() {
         try {

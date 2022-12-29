@@ -9,8 +9,11 @@ import android.media.projection.MediaProjectionManager;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Message;
+import android.os.PowerManager;
 import android.preference.Preference;
 import android.preference.PreferenceFragment;
+import android.provider.Settings;
 import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
@@ -26,6 +29,7 @@ import com.grampus.hualauncherkai.FloatWindow.EMMFloatWindowService;
 import com.grampus.hualauncherkai.R;
 import com.grampus.hualauncherkai.Tools.Save;
 import com.grampus.hualauncherkai.Tools.Tell;
+import com.grampus.hualauncherkai.UI.MainActivity;
 import com.grampus.hualauncherkai.UI.SettingWIFIPassword;
 import com.grampus.hualauncherkai.service.EMMAccessibilityService;
 import com.grampus.hualauncherkai.util.DeviceInfoUtil;
@@ -44,8 +48,9 @@ public class MoreSettingFragment extends PreferenceFragment implements Preferenc
     private Preference go_open_a11y;
     private Preference obtain_screencast;
     private Preference set_text_color;
-    private Preference connet_white_wifi;
+    private Preference connect_white_wifi;
     private MediaProjectionManager mediaProjectionManager;
+    private Preference btn_power_manage;
 
     public MoreSettingFragment() {
 
@@ -54,7 +59,6 @@ public class MoreSettingFragment extends PreferenceFragment implements Preferenc
 
     public static MoreSettingFragment newInstance(String param1, String param2) {
         MoreSettingFragment fragment = new MoreSettingFragment();
-
         return fragment;
     }
 
@@ -66,38 +70,90 @@ public class MoreSettingFragment extends PreferenceFragment implements Preferenc
         go_open_a11y = findPreference("go_open_a11y");
         obtain_screencast = findPreference("obtain_screencast");
         set_text_color = findPreference("set_text_color");
-        connet_white_wifi = findPreference("connet_white_wifi");
+        connect_white_wifi = findPreference("connect_white_wifi");
+        btn_power_manage = findPreference("btn_power_manage");
 
         go_open_a11y.setOnPreferenceClickListener(this);
         obtain_screencast.setOnPreferenceClickListener(this);
         set_text_color.setOnPreferenceClickListener(this);
-        connet_white_wifi.setOnPreferenceClickListener(this);
-
+        connect_white_wifi.setOnPreferenceClickListener(this);
+        btn_power_manage.setOnPreferenceClickListener(this);
     }
 
     @Override
     public boolean onPreferenceClick(Preference preference) {
 
-        if(preference.equals(go_open_a11y))
-        {
+        if(preference.equals(go_open_a11y)) {
             OpenAlly();
-        }else if (preference.equals(obtain_screencast))
-        {
+        }else if (preference.equals(obtain_screencast)) {
             obtainScreencast();
         }
-        else if (preference.equals(set_text_color))
-        {
+        else if (preference.equals(set_text_color)) {
             setThemeTextColor();
         }
-        else if (preference.equals(connet_white_wifi))
-        {
-            connetWhiteWifi();
+        else if (preference.equals(connect_white_wifi)) {
+            connectWhiteWifi();
+        }
+        else if (preference.equals(btn_power_manage)) {
+
+            checkBatteryOptimization();
         }
 
         return false;
     }
 
-    private void connetWhiteWifi() {
+    /**
+     * @author  fsy
+     * @date    2022/12/23 9:48
+     * @return
+     * @description 官方文档上是 Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+     *         很多机型上是  Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS
+     */
+    private void checkBatteryOptimization() {
+        try {
+
+            //6.0之前不需要设置
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) { return; }
+
+            if(!isIgnoringBatteryOptimizations()){
+                Intent intent = new Intent();
+                //intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK|Intent.FLAG_ACTIVITY_NEW_TASK);
+
+                intent.setAction(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
+             // intent.setData(Uri.parse("package:" + getActivity().getPackageName()));出错
+                Log.w("EMMMoreSetting", "main--------checkBatteryOptimization:"+getActivity().getPackageName());
+                startActivity(intent);
+
+                if(MainActivity.getInstance()!=null) {
+                    Message message = new Message();
+                    message.what = 13;
+                    MainActivity.getInstance().handler.sendMessageDelayed(message,200);
+                }
+            }
+            else
+                Toast.makeText(getActivity(),"已取消省电限制，无需重复操作",Toast.LENGTH_SHORT).show();
+
+        }catch (Exception e)
+        {
+            Log.e("EMMMoreSetting", "checkBatteryOptimization Exception:" + e.toString());
+        }
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.M)
+    private Boolean isIgnoringBatteryOptimizations() {
+
+        boolean isIgnoring = false;
+        PowerManager powerManager = (PowerManager)getActivity().getSystemService(Context.POWER_SERVICE);
+
+        if (powerManager!=null) {
+            isIgnoring = powerManager.isIgnoringBatteryOptimizations(getActivity().getPackageName());
+        }
+        Log.w("EMMMoreSetting", "isIgnoringBatteryOptimizations:"+isIgnoring);
+
+        return isIgnoring;
+    }
+
+    private void connectWhiteWifi() {
 
         //在这里设置状态，跳转过去不被辅助功能阻止的
         g_bAllowSetting = true;
